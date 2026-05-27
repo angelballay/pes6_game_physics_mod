@@ -1,0 +1,7 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="ab_gameplay_mod/ab_gameplay_mod.vcxproj" Id="10fea24f-9ff4-480d-9dd4-2a593e4ed5ee" />
+</Solution>
