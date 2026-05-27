@@ -24,6 +24,7 @@
     <ProjectGuid>{10fea24f-9ff4-480d-9dd4-2a593e4ed5ee}</ProjectGuid>
     <RootNamespace>abgameplaymod</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <ProjectName>pes6_game_physics_mod</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
