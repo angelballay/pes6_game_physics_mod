@@ -6,6 +6,7 @@
 #include "MemoryPatch.h"
 #include "PesAddresses.h"
 #include "PassContext.h"
+#include "ModState.h"
 
 // ------------------------------------------------------------
 // Globals internos del módulo PassPower
@@ -240,6 +241,7 @@ extern "C" __declspec(noinline) DWORD __cdecl CalculateModifiedEDI(DWORD ediOrig
     g_lastBoostMode = 0;
     g_lastBallGateMode = 0;
 
+ 
     DWORD ctxCount = GetContextCount();
     g_lastPowerCtxCount = ctxCount;
 
@@ -252,6 +254,15 @@ extern "C" __declspec(noinline) DWORD __cdecl CalculateModifiedEDI(DWORD ediOrig
     {
         g_lastPowerHadNewCtx = 0;
     }
+
+    if (!IsPhysicsModEnabled())
+    {
+        g_lastBoostMode = 0xFE;
+        g_lastBallGateMode = 0xFE;
+        g_lastEDIModified = ediOriginal;
+        return ediOriginal;
+    }
+
 
     DWORD ball50Before = ReadBall50Before();
     g_lastBall50Before = ball50Before;

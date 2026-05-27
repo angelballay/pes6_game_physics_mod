@@ -7,7 +7,9 @@
 #include "PassContext.h"
 #include "PassPower.h"
 #include <string.h>
-
+#include "ModState.h"
+#include "HotkeyToggle.h"
+#include "D3DOverlay.h"
 
 // ------------------------------------------------------------
 // Globals
@@ -111,6 +113,18 @@ static DWORD WINAPI MainThread(LPVOID)
         return 0;
     }
 
+    SetPhysicsModEnabled(true);
+
+    if (!InstallD3DOverlayHook())
+    {
+        WriteLog("[WARN] No se pudo instalar overlay D3D. El mod funciona, pero no habra mensaje en pantalla.");
+    }
+
+    StartHotkeyToggle();
+
+    WriteLog("[OK] Hotkey activo: Ctrl + Shift + P");
+    ShowPhysicsModOverlayMessage(true);
+
     DWORD lastCtxCount = 0;
     DWORD lastPowerCount = 0;
 
@@ -190,6 +204,8 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD reason, LPVOID reserved)
     case DLL_PROCESS_DETACH:
     {
         g_running = false;
+        StopHotkeyToggle();
+        ShutdownD3DOverlay();
         WriteLog("pes6_passspeed.dll descargada.");
         break;
     }
