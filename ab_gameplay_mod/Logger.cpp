@@ -8,8 +8,11 @@
 
 static const char* LOG_PATH = "D:\\pes6_passspeed.log";
 
+static const bool ENABLED = true;
+
 void WriteLog(const char* text)
 {
+    if (!ENABLED) return;
     HANDLE hFile = CreateFileA(
         LOG_PATH,
         FILE_APPEND_DATA,
@@ -31,6 +34,7 @@ void WriteLog(const char* text)
 
 void LogFormat(const char* format, ...)
 {
+    if (!ENABLED) return;
     char buffer[1024];
 
     va_list args;

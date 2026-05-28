@@ -140,9 +140,9 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="D3DOverlay.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="HotkeyToggle.h" />
+    <ClInclude Include="KitserverOverlay.h" />
     <ClInclude Include="Logger.h" />
     <ClInclude Include="MemoryPatch.h" />
     <ClInclude Include="ModState.h" />
@@ -153,9 +153,9 @@
     <ClInclude Include="PesAddresses.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="D3DOverlay.cpp" />
     <ClCompile Include="dllmain.cpp" />
     <ClCompile Include="HotkeyToggle.cpp" />
+    <ClCompile Include="KitserverOverlay.cpp" />
     <ClCompile Include="Logger.cpp" />
     <ClCompile Include="MemoryPatch.cpp" />
     <ClCompile Include="ModState.cpp" />

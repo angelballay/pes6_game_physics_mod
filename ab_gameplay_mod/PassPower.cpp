@@ -163,6 +163,36 @@ static DWORD GetMidDistanceExtra(int distSimple, BallInertiaBand band)
 }
 
 // ------------------------------------------------------------
+// Ajuste fino post-boost
+// ------------------------------------------------------------
+// Aumenta un 5% el boost aplicado, pero solo para pases
+// de distancia 3 a 6.
+// No afecta:
+// - pases muy cortos dist 0-2
+// - pases largos dist 7+
+// - noContext
+// - pases sin boost
+static DWORD ApplyDistance3To6FineTune(DWORD ediOriginal, DWORD edi, int distSimple)
+{
+    if (distSimple < 3 || distSimple > 6)
+    {
+        return edi;
+    }
+
+    if (edi <= ediOriginal)
+    {
+        return edi;
+    }
+
+    DWORD boostApplied = edi - ediOriginal;
+
+    // +5%, redondeado hacia abajo para no pasarnos.
+    DWORD extra = boostApplied / 20;
+
+    return edi + extra;
+}
+
+// ------------------------------------------------------------
 // Boost para newCtx=0
 // ------------------------------------------------------------
 static DWORD ApplyNoContextBoost(DWORD ediOriginal, BallInertiaBand band)
@@ -188,11 +218,20 @@ static DWORD ApplyNoContextBoost(DWORD ediOriginal, BallInertiaBand band)
         g_lastBoostMode = 0x42;
         g_lastBallGateMode = MakeNoContextGateMode(band);
     }
-
     if (edi > g_passConfig.noContextEdiCap)
     {
-        edi = g_passConfig.noContextEdiCap;
+        // No permitir que el cap reduzca un EDI original que ya venía
+        // por encima del cap. El mod nunca debería debilitar el pase.
+        if (ediOriginal < g_passConfig.noContextEdiCap)
+        {
+            edi = g_passConfig.noContextEdiCap;
+        }
+        else
+        {
+            edi = ediOriginal;
+        }
     }
+
 
     return edi;
 }
@@ -255,6 +294,11 @@ extern "C" __declspec(noinline) DWORD __cdecl CalculateModifiedEDI(DWORD ediOrig
         g_lastPowerHadNewCtx = 0;
     }
 
+    // --------------------------------------------------------
+    // Runtime toggle:
+    // Si el mod esta desactivado, el hook sigue vivo pero
+    // devuelve exactamente el EDI original. Gameplay vanilla.
+    // --------------------------------------------------------
     if (!IsPhysicsModEnabled())
     {
         g_lastBoostMode = 0xFE;
@@ -365,6 +409,7 @@ extern "C" __declspec(noinline) DWORD __cdecl CalculateModifiedEDI(DWORD ediOrig
         g_lastBallGateMode = MakeGateMode(ballBand, false);
         g_lastBoostMode = MakeMidBoostMode(distSimple);
     }
+    edi = ApplyDistance3To6FineTune(ediOriginal, edi, distSimple);
 
     if (edi > g_passConfig.ediMaxCap)
     {

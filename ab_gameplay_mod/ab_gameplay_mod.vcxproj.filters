@@ -42,10 +42,10 @@
     <ClInclude Include="ModState.h">
       <Filter>Archivos de origen</Filter>
     </ClInclude>
-    <ClInclude Include="D3DOverlay.h">
+    <ClInclude Include="HotkeyToggle.h">
       <Filter>Archivos de origen</Filter>
     </ClInclude>
-    <ClInclude Include="HotkeyToggle.h">
+    <ClInclude Include="KitserverOverlay.h">
       <Filter>Archivos de origen</Filter>
     </ClInclude>
   </ItemGroup>
@@ -74,10 +74,10 @@
     <ClCompile Include="ModState.cpp">
       <Filter>Archivos de origen</Filter>
     </ClCompile>
-    <ClCompile Include="D3DOverlay.cpp">
+    <ClCompile Include="HotkeyToggle.cpp">
       <Filter>Archivos de origen</Filter>
     </ClCompile>
-    <ClCompile Include="HotkeyToggle.cpp">
+    <ClCompile Include="KitserverOverlay.cpp">
       <Filter>Archivos de origen</Filter>
     </ClCompile>
   </ItemGroup>

@@ -9,7 +9,7 @@
 #include <string.h>
 #include "ModState.h"
 #include "HotkeyToggle.h"
-#include "D3DOverlay.h"
+#include "KitserverOverlay.h"
 
 // ------------------------------------------------------------
 // Globals
@@ -112,18 +112,21 @@ static DWORD WINAPI MainThread(LPVOID)
         WriteLog("[ERROR] Fallo instalando hook de potencia.");
         return 0;
     }
-
     SetPhysicsModEnabled(true);
 
-    if (!InstallD3DOverlayHook())
+    if (InstallKitserverOverlay())
     {
-        WriteLog("[WARN] No se pudo instalar overlay D3D. El mod funciona, pero no habra mensaje en pantalla.");
+        WriteLog("[OK] Overlay Kitserver activo.");
+        ShowPhysicsModOverlayMessage(true);
+    }
+    else
+    {
+        WriteLog("[WARN] Overlay Kitserver no disponible. El toggle funcionara igual por log.");
     }
 
     StartHotkeyToggle();
 
     WriteLog("[OK] Hotkey activo: Ctrl + Shift + P");
-    ShowPhysicsModOverlayMessage(true);
 
     DWORD lastCtxCount = 0;
     DWORD lastPowerCount = 0;
@@ -205,7 +208,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD reason, LPVOID reserved)
     {
         g_running = false;
         StopHotkeyToggle();
-        ShutdownD3DOverlay();
+        UninstallKitserverOverlay();
         WriteLog("pes6_passspeed.dll descargada.");
         break;
     }

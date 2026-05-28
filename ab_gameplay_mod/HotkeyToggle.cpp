@@ -4,7 +4,7 @@
 
 #include "Logger.h"
 #include "ModState.h"
-#include "D3DOverlay.h"
+#include "KitserverOverlay.h"
 
 #include <windows.h>
 
@@ -47,6 +47,7 @@ static DWORD WINAPI HotkeyThreadProc(LPVOID)
     }
 
     WriteLog("[HOTKEY] Thread finalizado.");
+
     return 0;
 }
 
@@ -74,7 +75,7 @@ void StartHotkeyToggle()
     else
     {
         g_hotkeyRunning = false;
-        WriteLog("[HOTKEY][ERROR] No se pudo crear thread de hotkey.");
+        WriteLog("[HOTKEY][ERROR] No se pudo crear thread.");
     }
 }
 

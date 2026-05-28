@@ -3,7 +3,7 @@
 
 #include <windows.h>
 
-// Arranca activado por defecto.
+// El mod arranca activado por defecto.
 static volatile LONG g_physicsModEnabled = 1;
 
 bool IsPhysicsModEnabled()
