@@ -51,5 +51,39 @@ PassPowerConfig g_passConfig = {
     // Pisos blandos
     0x4F00, // softFloorLowDist5_6
     0x5300, // softFloorLowDist7_plus
-    0x4200  // softFloorLowDist3_4
+    0x4200, // softFloorLowDist3_4
+
+    // Rescate awkward long
+    0x4600,  // awkwardLongEdiMax
+    6,       // awkwardLongDistMin
+    -0.35f,  // awkwardLongDotMax
+    0x0200,   // awkwardLongExtra
+    0x5200,    // awkwardLongSoftFloor
+
+    // Rescate awkward short/medium
+    0x3E00,   // awkwardShortEdiMax
+    3,        // awkwardShortDistMin
+    4,        // awkwardShortDistMax
+    -0.75f,   // awkwardShortDotMax
+    0x0180,   // awkwardShortExtra
+    0x4300,   // awkwardShortSoftFloor
+    0x4300,    // awkwardShortPostEdiMax
+
+    // Awkward short/medium, pero con distancia real larga
+    3400.0f,  // awkwardShortRealLongPassDistMin
+    0x4800,   // awkwardShortRealLongSoftFloor
+    0x4900,    // awkwardShortRealLongPostEdiMax
+
+    // Rescate distSimple subestimada por distancia real
+    4000.0f,  // realDistUnderDist34Min
+    0x4D00,   // realDistUnderDist34SoftFloor
+    0x5200,   // realDistUnderDist34PostEdiMax
+
+    5200.0f,  // realDistUnderDist5Min
+    0x5600,   // realDistUnderDist5SoftFloor
+    0x5A00,   // realDistUnderDist5PostEdiMax
+
+    0x0180    // realDistUnderBoostExtra
+
+
 };
