@@ -67,6 +67,45 @@ struct PassPowerConfig {
     DWORD softFloorLowDist5_6;
     DWORD softFloorLowDist7_plus;
     DWORD softFloorLowDist3_4;
+
+    // Rescate por pase largo incómodo:
+    // pelota contraria al sentido del pase + distancia media/larga + EDI bajo
+    DWORD awkwardLongEdiMax;
+    DWORD awkwardLongDistMin;
+    float awkwardLongDotMax;
+    DWORD awkwardLongExtra;
+    DWORD awkwardLongSoftFloor;
+
+    // Rescate por pase corto/medio incómodo:
+    // pelota muy contraria al sentido del pase + EDI muy bajo.
+    DWORD awkwardShortEdiMax;
+    DWORD awkwardShortDistMin;
+    DWORD awkwardShortDistMax;
+    float awkwardShortDotMax;
+    DWORD awkwardShortExtra;
+    DWORD awkwardShortSoftFloor;
+    DWORD awkwardShortPostEdiMax;
+
+    // Variante para awkward short/medium cuando la distancia real es larga.
+    // Mantiene distSimple 3..4, pero si geomPassDist es alto,
+    // permite un target mayor.
+    float awkwardShortRealLongPassDistMin;
+    DWORD awkwardShortRealLongSoftFloor;
+    DWORD awkwardShortRealLongPostEdiMax;
+
+    // Rescate cuando distSimple subestima la distancia real.
+    // Caso típico:
+    // distSimple 3..5, pero geomPassDist indica que el pase
+    // era medio/medio-largo y el EDI final quedó demasiado bajo.
+    float realDistUnderDist34Min;
+    DWORD realDistUnderDist34SoftFloor;
+    DWORD realDistUnderDist34PostEdiMax;
+
+    float realDistUnderDist5Min;
+    DWORD realDistUnderDist5SoftFloor;
+    DWORD realDistUnderDist5PostEdiMax;
+
+    DWORD realDistUnderBoostExtra;
 };
 
 // Instancia global con la configuración por defecto

@@ -8,7 +8,7 @@
 
 static const char* LOG_PATH = "D:\\pes6_passspeed.log";
 
-static const bool ENABLED = true;
+static const bool ENABLED = false;
 
 void WriteLog(const char* text)
 {

@@ -18,3 +18,13 @@ bool ReadPassContextDistance(
     BYTE* receiverY,
     int* distSimple
 );
+
+bool ReadPassGeometryDot(
+    DWORD passer,
+    DWORD receiver,
+    float* outDot,
+    float* outBallDist,
+    float* outPassDist,
+    DWORD* outPasserBallDistRaw,
+    DWORD* outReceiverBallDistRaw
+);

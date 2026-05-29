@@ -84,9 +84,10 @@ static DWORD WINAPI MainThread(LPVOID)
     Sleep(1000);
 
     WriteLog("========================================");
-    WriteLog("pes6_passspeed.dll cargada.");
-    WriteLog("Version modular: PassSpeed v0.3.4 50% con logs.");
-    WriteLog("IMPORTANTE: newCtx solo se loguea, todavia no bloquea boosts.");
+    WriteLog("pes6_game_physics_mod.dll cargada.");
+    WriteLog("Autor: pitycharly");
+    WriteLog("Version: 1.0");
+    WriteLog("Descripcion: mod de fisicas de pases desarrollado por pitycharly.");
     WriteLog("========================================");
 
     HMODULE exeModule = GetModuleHandleA(nullptr);
@@ -151,7 +152,9 @@ static DWORD WINAPI MainThread(LPVOID)
             LogFormat(
                 "[PWR] count=%u edi=0x%08X->0x%08X ball50Before=%u dist=%u "
                 "boostMode=0x%X gate=0x%X ctxAtPower=%u newCtx=%u "
-                "ballD0=(%.2f,%.2f,%.2f) ball1454=(%.2f,%.2f,%.2f)",
+                "ballD0=(%.2f,%.2f,%.2f) ball1454=(%.2f,%.2f,%.2f)"
+                " geom=%u dot=%.3f ballDist=%.1f passDist=%.1f "
+                "pBallRaw=%u rBallRaw=%u awkwardLong=%u ",
                 (unsigned int)powerCount,
                 (unsigned int)GetLastEDIOriginal(),
                 (unsigned int)GetLastEDIModified(),
@@ -166,7 +169,14 @@ static DWORD WINAPI MainThread(LPVOID)
                 BitsToFloat(GetLastBallD0ZBits()),
                 BitsToFloat(GetLastBall1454XBits()),
                 BitsToFloat(GetLastBall1458YBits()),
-                BitsToFloat(GetLastBall145CZBits())
+                BitsToFloat(GetLastBall145CZBits()), 
+                (unsigned int)GetLastGeomHasData(),
+                BitsToFloat(GetLastGeomDotBits()),
+                BitsToFloat(GetLastGeomBallDistBits()),
+                BitsToFloat(GetLastGeomPassDistBits()),
+                (unsigned int)GetLastGeomPBallRaw(),
+                (unsigned int)GetLastGeomRBallRaw(),
+                (unsigned int)GetLastAwkwardLongCandidate()
             );
         }
     }
