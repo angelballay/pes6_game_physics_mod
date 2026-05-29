@@ -84,9 +84,10 @@ static DWORD WINAPI MainThread(LPVOID)
     Sleep(1000);
 
     WriteLog("========================================");
-    WriteLog("pes6_passspeed.dll cargada.");
-    WriteLog("Version modular: PassSpeed v0.3.4 50% con logs.");
-    WriteLog("IMPORTANTE: newCtx solo se loguea, todavia no bloquea boosts.");
+    WriteLog("pes6_game_physics_mod.dll cargada.");
+    WriteLog("Autor: pitycharly");
+    WriteLog("Version: 1.0");
+    WriteLog("Descripcion: mod de fisicas de pases desarrollado por pitycharly.");
     WriteLog("========================================");
 
     HMODULE exeModule = GetModuleHandleA(nullptr);
