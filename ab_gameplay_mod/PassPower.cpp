@@ -42,6 +42,14 @@ static volatile DWORD g_lastBallD0ZBits = 0;
 static volatile DWORD g_lastBall1454XBits = 0;
 static volatile DWORD g_lastBall1458YBits = 0;
 static volatile DWORD g_lastBall145CZBits = 0;
+
+static volatile DWORD g_lastGeomDotBits = 0;
+static volatile DWORD g_lastGeomBallDistBits = 0;
+static volatile DWORD g_lastGeomPassDistBits = 0;
+static volatile DWORD g_lastGeomPBallRaw = 0;
+static volatile DWORD g_lastGeomRBallRaw = 0;
+static volatile DWORD g_lastGeomHasData = 0;
+static volatile DWORD g_lastAwkwardLongCandidate = 0;
 // ------------------------------------------------------------
 // Getters para logging desde dllmain.cpp
 // ------------------------------------------------------------
@@ -61,6 +69,13 @@ DWORD GetLastBallD0ZBits() { return g_lastBallD0ZBits; }
 DWORD GetLastBall1454XBits() { return g_lastBall1454XBits; }
 DWORD GetLastBall1458YBits() { return g_lastBall1458YBits; }
 DWORD GetLastBall145CZBits() { return g_lastBall145CZBits; }
+DWORD GetLastGeomDotBits() { return g_lastGeomDotBits; }
+DWORD GetLastGeomBallDistBits() { return g_lastGeomBallDistBits; }
+DWORD GetLastGeomPassDistBits() { return g_lastGeomPassDistBits; }
+DWORD GetLastGeomPBallRaw() { return g_lastGeomPBallRaw; }
+DWORD GetLastGeomRBallRaw() { return g_lastGeomRBallRaw; }
+DWORD GetLastGeomHasData() { return g_lastGeomHasData; }
+DWORD GetLastAwkwardLongCandidate() { return g_lastAwkwardLongCandidate; }
 
 // ------------------------------------------------------------
 // Lectura segura de ball+50 antes de que 78020 lo sobrescriba
@@ -279,8 +294,15 @@ extern "C" __declspec(noinline) DWORD __cdecl CalculateModifiedEDI(DWORD ediOrig
     g_lastDistSimple = 0;
     g_lastBoostMode = 0;
     g_lastBallGateMode = 0;
+    g_lastGeomDotBits = 0;
+    g_lastGeomBallDistBits = 0;
+    g_lastGeomPassDistBits = 0;
+    g_lastGeomPBallRaw = 0;
+    g_lastGeomRBallRaw = 0;
+    g_lastGeomHasData = 0;
+    g_lastAwkwardLongCandidate = 0;
 
- 
+
     DWORD ctxCount = GetContextCount();
     g_lastPowerCtxCount = ctxCount;
 
@@ -354,6 +376,56 @@ extern "C" __declspec(noinline) DWORD __cdecl CalculateModifiedEDI(DWORD ediOrig
     if (hasDistance) g_lastDistSimple = (DWORD)distSimple;
     else { g_lastDistSimple = 0; distSimple = 0; }
 
+    // --------------------------------------------------------
+    // Geometría auxiliar:
+    // No reemplaza la distancia actual. Solo detecta casos donde
+    // la pelota está del lado contrario al sentido del pase.
+    // --------------------------------------------------------
+    float geomDot = 0.0f;
+    float geomBallDist = 0.0f;
+    float geomPassDist = 0.0f;
+    DWORD geomPBallRaw = 0;
+    DWORD geomRBallRaw = 0;
+
+    bool hasGeom = ReadPassGeometryDot(
+        passer,
+        receiver,
+        &geomDot,
+        &geomBallDist,
+        &geomPassDist,
+        &geomPBallRaw,
+        &geomRBallRaw
+    );
+
+    if (hasGeom)
+    {
+        g_lastGeomHasData = 1;
+        g_lastGeomDotBits = *(DWORD*)&geomDot;
+        g_lastGeomBallDistBits = *(DWORD*)&geomBallDist;
+        g_lastGeomPassDistBits = *(DWORD*)&geomPassDist;
+        g_lastGeomPBallRaw = geomPBallRaw;
+        g_lastGeomRBallRaw = geomRBallRaw;
+    }
+
+    bool awkwardLongRescueApplied = false;
+    bool awkwardShortRescueApplied = false;
+    DWORD awkwardShortFinalCap = 0;
+
+    bool awkwardShortCandidate =
+        hasGeom &&
+        distSimple >= (int)g_passConfig.awkwardShortDistMin &&
+        distSimple <= (int)g_passConfig.awkwardShortDistMax &&
+        ediOriginal < g_passConfig.awkwardShortEdiMax &&
+        geomDot <= g_passConfig.awkwardShortDotMax;
+
+    bool awkwardLongCandidate =
+        hasGeom &&
+        distSimple >= (int)g_passConfig.awkwardLongDistMin &&
+        ediOriginal < g_passConfig.awkwardLongEdiMax &&
+        geomDot <= g_passConfig.awkwardLongDotMax;
+
+    g_lastAwkwardLongCandidate = awkwardLongCandidate ? 1 : 0;
+
     DWORD edi = ediOriginal;
 
     if (edi < g_passConfig.ediThresholdLow)
@@ -389,7 +461,7 @@ extern "C" __declspec(noinline) DWORD __cdecl CalculateModifiedEDI(DWORD ediOrig
             else edi = ApplySoftFloor(edi, g_passConfig.softFloorLowDist5_6);
             if (edi != beforeFloor) softFloorApplied = true;
         }
-        
+
         if (ediOriginal < g_passConfig.shortRescueLowEdiThreshold && distSimple >= g_passConfig.shortRescueLowDistMin && distSimple <= g_passConfig.shortRescueLowDistMax)
         {
             DWORD beforeFloor = edi;
@@ -397,8 +469,66 @@ extern "C" __declspec(noinline) DWORD __cdecl CalculateModifiedEDI(DWORD ediOrig
             if (edi != beforeFloor) softFloorApplied = true;
         }
 
+        // ----------------------------------------------------
+        // Rescate de pase largo incómodo:
+        // Solo entra si:
+        // - hay geometría válida
+        // - distancia actual >= awkwardLongDistMin
+        // - EDI original bajo/medio-bajo
+        // - dot negativo: pelota del lado contrario del pase
+        // ----------------------------------------------------
+        if (awkwardLongCandidate)
+        {
+            edi += g_passConfig.awkwardLongExtra;
+
+            DWORD beforeAwkwardFloor = edi;
+            edi = ApplySoftFloor(edi, g_passConfig.awkwardLongSoftFloor);
+
+            if (edi != beforeAwkwardFloor)
+                softFloorApplied = true;
+
+            awkwardLongRescueApplied = true;
+        }
+
+        if (awkwardShortCandidate)
+        {
+            bool awkwardShortRealLong =
+                geomPassDist >= g_passConfig.awkwardShortRealLongPassDistMin;
+
+            DWORD awkwardShortFloor = awkwardShortRealLong
+                ? g_passConfig.awkwardShortRealLongSoftFloor
+                : g_passConfig.awkwardShortSoftFloor;
+
+            DWORD awkwardShortCap = awkwardShortRealLong
+                ? g_passConfig.awkwardShortRealLongPostEdiMax
+                : g_passConfig.awkwardShortPostEdiMax;
+
+            if (edi < awkwardShortCap)
+            {
+                edi += g_passConfig.awkwardShortExtra;
+
+                DWORD beforeAwkwardShortFloor = edi;
+                edi = ApplySoftFloor(edi, awkwardShortFloor);
+
+                if (edi > awkwardShortCap)
+                    edi = awkwardShortCap;
+
+                if (edi != beforeAwkwardShortFloor)
+                    softFloorApplied = true;
+
+                awkwardShortRescueApplied = true;
+                awkwardShortFinalCap = awkwardShortCap;
+            }
+        }
+
         g_lastBallGateMode = MakeGateMode(ballBand, true);
-        g_lastBoostMode = MakeLowBoostMode(distSimple, rescueApplied, softFloorApplied, shortRescueApplied);
+
+        if (awkwardShortRescueApplied)
+            g_lastBoostMode = 0x1B;
+        else if (awkwardLongRescueApplied)
+            g_lastBoostMode = 0x1A;
+        else
+            g_lastBoostMode = MakeLowBoostMode(distSimple, rescueApplied, softFloorApplied, shortRescueApplied);
     }
     else
     {
@@ -411,12 +541,19 @@ extern "C" __declspec(noinline) DWORD __cdecl CalculateModifiedEDI(DWORD ediOrig
     }
     edi = ApplyDistance3To6FineTune(ediOriginal, edi, distSimple);
 
+    // Reaplicar cap específico de awkwardShort después del fine tune.
+    // Sin esto, ApplyDistance3To6FineTune puede volver a subir el EDI
+    // por encima de awkwardShortPostEdiMax / awkwardShortRealLongPostEdiMax.
+    if (awkwardShortRescueApplied && awkwardShortFinalCap != 0 && edi > awkwardShortFinalCap)
+    {
+        edi = awkwardShortFinalCap;
+    }
+
     if (edi > g_passConfig.ediMaxCap)
     {
         edi = g_passConfig.ediMaxCap;
         g_lastBoostMode = 0x99;
     }
-
     g_lastEDIModified = edi;
     return edi;
 }

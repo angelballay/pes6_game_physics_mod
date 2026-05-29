@@ -67,6 +67,31 @@ struct PassPowerConfig {
     DWORD softFloorLowDist5_6;
     DWORD softFloorLowDist7_plus;
     DWORD softFloorLowDist3_4;
+
+    // Rescate por pase largo incómodo:
+    // pelota contraria al sentido del pase + distancia media/larga + EDI bajo
+    DWORD awkwardLongEdiMax;
+    DWORD awkwardLongDistMin;
+    float awkwardLongDotMax;
+    DWORD awkwardLongExtra;
+    DWORD awkwardLongSoftFloor;
+
+    // Rescate por pase corto/medio incómodo:
+    // pelota muy contraria al sentido del pase + EDI muy bajo.
+    DWORD awkwardShortEdiMax;
+    DWORD awkwardShortDistMin;
+    DWORD awkwardShortDistMax;
+    float awkwardShortDotMax;
+    DWORD awkwardShortExtra;
+    DWORD awkwardShortSoftFloor;
+    DWORD awkwardShortPostEdiMax;
+
+    // Variante para awkward short/medium cuando la distancia real es larga.
+    // Mantiene distSimple 3..4, pero si geomPassDist es alto,
+    // permite un target mayor.
+    float awkwardShortRealLongPassDistMin;
+    DWORD awkwardShortRealLongSoftFloor;
+    DWORD awkwardShortRealLongPostEdiMax;
 };
 
 // Instancia global con la configuración por defecto

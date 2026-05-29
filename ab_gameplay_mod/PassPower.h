@@ -21,3 +21,11 @@ DWORD GetLastBallD0ZBits();
 DWORD GetLastBall1454XBits();
 DWORD GetLastBall1458YBits();
 DWORD GetLastBall145CZBits();
+
+DWORD GetLastGeomDotBits();
+DWORD GetLastGeomBallDistBits();
+DWORD GetLastGeomPassDistBits();
+DWORD GetLastGeomPBallRaw();
+DWORD GetLastGeomRBallRaw();
+DWORD GetLastGeomHasData();
+DWORD GetLastAwkwardLongCandidate();
