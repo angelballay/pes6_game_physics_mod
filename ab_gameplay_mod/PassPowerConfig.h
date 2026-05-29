@@ -92,6 +92,20 @@ struct PassPowerConfig {
     float awkwardShortRealLongPassDistMin;
     DWORD awkwardShortRealLongSoftFloor;
     DWORD awkwardShortRealLongPostEdiMax;
+
+    // Rescate cuando distSimple subestima la distancia real.
+    // Caso típico:
+    // distSimple 3..5, pero geomPassDist indica que el pase
+    // era medio/medio-largo y el EDI final quedó demasiado bajo.
+    float realDistUnderDist34Min;
+    DWORD realDistUnderDist34SoftFloor;
+    DWORD realDistUnderDist34PostEdiMax;
+
+    float realDistUnderDist5Min;
+    DWORD realDistUnderDist5SoftFloor;
+    DWORD realDistUnderDist5PostEdiMax;
+
+    DWORD realDistUnderBoostExtra;
 };
 
 // Instancia global con la configuración por defecto

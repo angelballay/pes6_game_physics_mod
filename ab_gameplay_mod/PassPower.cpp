@@ -77,6 +77,14 @@ DWORD GetLastGeomRBallRaw() { return g_lastGeomRBallRaw; }
 DWORD GetLastGeomHasData() { return g_lastGeomHasData; }
 DWORD GetLastAwkwardLongCandidate() { return g_lastAwkwardLongCandidate; }
 
+
+static DWORD ApplySoftFloor(DWORD edi, DWORD target)
+{
+    if (edi >= target) return edi;
+    return edi + ((target - edi) / 2);
+}
+
+
 // ------------------------------------------------------------
 // Lectura segura de ball+50 antes de que 78020 lo sobrescriba
 // ------------------------------------------------------------
@@ -123,6 +131,87 @@ static bool ReadBallDebugPositions(
         return false;
     }
 }
+
+// ------------------------------------------------------------
+// Rescate por distancia real subestimada
+// ------------------------------------------------------------
+// Corrige únicamente casos donde la distancia discreta del juego
+// se queda corta frente a la distancia geométrica real.
+//
+// Ejemplo:
+// distSimple = 3..4, pero geomPassDist >= 4000
+// distSimple = 5,    pero geomPassDist >= 5200
+//
+// No toca:
+// - pases sin geometría
+// - distancias 0..2
+// - distancias 6+
+// - pases que ya quedaron suficientemente fuertes
+// - pases con EDI original >= ediThresholdIgnore
+static DWORD ApplyRealDistanceUnderestimateRescue(
+    DWORD ediOriginal,
+    DWORD edi,
+    int distSimple,
+    bool hasGeom,
+    float geomPassDist,
+    bool* outApplied
+)
+{
+    if (outApplied)
+        *outApplied = false;
+
+    if (!hasGeom)
+        return edi;
+
+    if (ediOriginal >= g_passConfig.ediThresholdIgnore)
+        return edi;
+
+    if (distSimple < 3 || distSimple > 5)
+        return edi;
+
+    DWORD softFloor = 0;
+    DWORD postCap = 0;
+
+    if (distSimple >= 3 && distSimple <= 4)
+    {
+        if (geomPassDist < g_passConfig.realDistUnderDist34Min)
+            return edi;
+
+        softFloor = g_passConfig.realDistUnderDist34SoftFloor;
+        postCap = g_passConfig.realDistUnderDist34PostEdiMax;
+    }
+    else // distSimple == 5
+    {
+        if (geomPassDist < g_passConfig.realDistUnderDist5Min)
+            return edi;
+
+        softFloor = g_passConfig.realDistUnderDist5SoftFloor;
+        postCap = g_passConfig.realDistUnderDist5PostEdiMax;
+    }
+
+    // Si ya quedó suficientemente fuerte, no tocar.
+    if (edi >= postCap)
+        return edi;
+
+    DWORD before = edi;
+
+    // Extra chico fijo, para no romper el balance actual.
+    edi += g_passConfig.realDistUnderBoostExtra;
+
+    // Piso blando: empuja hacia target, no fuerza directo.
+    edi = ApplySoftFloor(edi, softFloor);
+
+    // Cap local de seguridad.
+    if (edi > postCap)
+        edi = postCap;
+
+    if (outApplied && edi != before)
+        *outApplied = true;
+
+    return edi;
+}
+
+
 
 // ------------------------------------------------------------
 // Clasificación de inercia
@@ -272,14 +361,7 @@ static DWORD MakeMidBoostMode(int distSimple)
     return 0x20;
 }
 
-// ------------------------------------------------------------
-// Piso blando para pases vulnerables
-// ------------------------------------------------------------
-static DWORD ApplySoftFloor(DWORD edi, DWORD target)
-{
-    if (edi >= target) return edi;
-    return edi + ((target - edi) / 2);
-}
+
 
 // ------------------------------------------------------------
 // Cálculo principal refactorizado
@@ -547,6 +629,28 @@ extern "C" __declspec(noinline) DWORD __cdecl CalculateModifiedEDI(DWORD ediOrig
     if (awkwardShortRescueApplied && awkwardShortFinalCap != 0 && edi > awkwardShortFinalCap)
     {
         edi = awkwardShortFinalCap;
+    }
+
+    // ----------------------------------------------------
+    // Rescate quirúrgico por distancia real subestimada.
+    // Caso típico:
+    // distSimple 3..5, pero geomPassDist real indica que
+    // el pase era medio/medio-largo y quedó demasiado bajo.
+    // ----------------------------------------------------
+    bool realDistUnderRescueApplied = false;
+
+    edi = ApplyRealDistanceUnderestimateRescue(
+        ediOriginal,
+        edi,
+        distSimple,
+        hasGeom,
+        geomPassDist,
+        &realDistUnderRescueApplied
+    );
+
+    if (realDistUnderRescueApplied)
+    {
+        g_lastBoostMode = 0x1C;
     }
 
     if (edi > g_passConfig.ediMaxCap)

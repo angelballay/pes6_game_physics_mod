@@ -72,5 +72,18 @@ PassPowerConfig g_passConfig = {
     // Awkward short/medium, pero con distancia real larga
     3400.0f,  // awkwardShortRealLongPassDistMin
     0x4800,   // awkwardShortRealLongSoftFloor
-    0x4900    // awkwardShortRealLongPostEdiMax
+    0x4900,    // awkwardShortRealLongPostEdiMax
+
+    // Rescate distSimple subestimada por distancia real
+    4000.0f,  // realDistUnderDist34Min
+    0x4D00,   // realDistUnderDist34SoftFloor
+    0x5200,   // realDistUnderDist34PostEdiMax
+
+    5200.0f,  // realDistUnderDist5Min
+    0x5600,   // realDistUnderDist5SoftFloor
+    0x5A00,   // realDistUnderDist5PostEdiMax
+
+    0x0180    // realDistUnderBoostExtra
+
+
 };
