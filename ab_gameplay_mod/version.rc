@@ -2,7 +2,7 @@
 //
 #include "resource.h"
 /////////////////////////////////////////////////////////////////////////////
-// Espaï¿½ol (Mï¿½xico) resources
+// Español (México) resources
 
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ESM)
 LANGUAGE LANG_SPANISH, SUBLANG_SPANISH_MEXICAN
@@ -32,12 +32,12 @@ END
 
 #endif    // APSTUDIO_INVOKED
 
-#endif    // Espaï¿½ol (Mï¿½xico) resources
+#endif    // Español (México) resources
 /////////////////////////////////////////////////////////////////////////////
 
 
 /////////////////////////////////////////////////////////////////////////////
-// Espaï¿½ol (Argentina) resources
+// Español (Argentina) resources
 
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ESS)
 LANGUAGE LANG_SPANISH, SUBLANG_SPANISH_ARGENTINA
@@ -49,8 +49,8 @@ LANGUAGE LANG_SPANISH, SUBLANG_SPANISH_ARGENTINA
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 1,0,0,0
- PRODUCTVERSION 1,0,0,0
+ FILEVERSION 1,1,0,0
+ PRODUCTVERSION 1,1,0,0
  FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -67,12 +67,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "Pitycharly"
             VALUE "FileDescription", "Mod de fisicas de pases desarrollado por pitycharly"
-            VALUE "FileVersion", "1.0.0.0"
+            VALUE "FileVersion", "1.1.0.0"
             VALUE "InternalName", "pes6_game_physics_mod.dll"
             VALUE "LegalCopyright", "Pitycharly"
             VALUE "OriginalFilename", "pes6_game_physics_mod.dll"
             VALUE "ProductName", "Pes6 Game Physics Mod"
-            VALUE "ProductVersion", "1.0.0.0"
+            VALUE "ProductVersion", "1.1.0.0"
         END
     END
     BLOCK "VarFileInfo"
@@ -81,7 +81,7 @@ BEGIN
     END
 END
 
-#endif    // Espaï¿½ol (Argentina) resources
+#endif    // Español (Argentina) resources
 /////////////////////////////////////////////////////////////////////////////
 
 
