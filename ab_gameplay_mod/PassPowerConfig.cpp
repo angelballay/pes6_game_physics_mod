@@ -49,9 +49,9 @@ PassPowerConfig g_passConfig = {
     0x0200, // shortRescueLowExtraOtherInertia
 
     // Pisos blandos
-    0x4F00, // softFloorLowDist5_6
-    0x5300, // softFloorLowDist7_plus
-    0x4200, // softFloorLowDist3_4
+    0x5100, // softFloorLowDist5_6
+    0x5500, // softFloorLowDist7_plus
+    0x4400, // softFloorLowDist3_4
 
     // Rescate awkward long
     0x4600,  // awkwardLongEdiMax
@@ -61,7 +61,7 @@ PassPowerConfig g_passConfig = {
     0x5200,    // awkwardLongSoftFloor
 
     // Rescate awkward short/medium
-    0x3E00,   // awkwardShortEdiMax
+    0x4000,   // awkwardShortEdiMax
     3,        // awkwardShortDistMin
     4,        // awkwardShortDistMax
     -0.75f,   // awkwardShortDotMax
@@ -71,12 +71,12 @@ PassPowerConfig g_passConfig = {
 
     // Awkward short/medium, pero con distancia real larga
     3400.0f,  // awkwardShortRealLongPassDistMin
-    0x4800,   // awkwardShortRealLongSoftFloor
-    0x4900,    // awkwardShortRealLongPostEdiMax
+    0x4900,   // awkwardShortRealLongSoftFloor
+    0x4A00,    // awkwardShortRealLongPostEdiMax
 
     // Rescate distSimple subestimada por distancia real
     4000.0f,  // realDistUnderDist34Min
-    0x4D00,   // realDistUnderDist34SoftFloor
+    0x5000,   // realDistUnderDist34SoftFloor
     0x5200,   // realDistUnderDist34PostEdiMax
 
     5200.0f,  // realDistUnderDist5Min

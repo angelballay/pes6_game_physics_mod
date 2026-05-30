@@ -53,7 +53,7 @@ static void LogCurrentContext(DWORD ctxCount)
     ))
     {
         LogFormat(
-            "[CTX] count=%u passer=0x%08X receiver=0x%08X p=(%u,%u) r=(%u,%u) dist=%d",
+            "[CTX] passId=%u passer=0x%08X receiver=0x%08X p=(%u,%u) r=(%u,%u) dist=%d",
             (unsigned int)ctxCount,
             (unsigned int)passer,
             (unsigned int)receiver,
@@ -150,11 +150,12 @@ static DWORD WINAPI MainThread(LPVOID)
             lastPowerCount = powerCount;
 
             LogFormat(
-                "[PWR] count=%u edi=0x%08X->0x%08X ball50Before=%u dist=%u "
-                "boostMode=0x%X gate=0x%X ctxAtPower=%u newCtx=%u "
+                "[PWR] passId=%u pwrHit=%u edi=0x%08X->0x%08X ball50Before=%u dist=%u "
+                "boostMode=0x%X gate=0x%X newCtx=%u "
                 "ballD0=(%.2f,%.2f,%.2f) ball1454=(%.2f,%.2f,%.2f)"
                 " geom=%u dot=%.3f ballDist=%.1f passDist=%.1f "
                 "pBallRaw=%u rBallRaw=%u awkwardLong=%u ",
+                (unsigned int)GetLastPowerCtxCount(),
                 (unsigned int)powerCount,
                 (unsigned int)GetLastEDIOriginal(),
                 (unsigned int)GetLastEDIModified(),
@@ -162,7 +163,6 @@ static DWORD WINAPI MainThread(LPVOID)
                 (unsigned int)GetLastDistSimple(),
                 (unsigned int)GetLastBoostMode(),
                 (unsigned int)GetLastBallGateMode(),
-                (unsigned int)GetLastPowerCtxCount(),
                 (unsigned int)GetLastPowerHadNewCtx(),
                 BitsToFloat(GetLastBallD0XBits()),
                 BitsToFloat(GetLastBallD0YBits()),

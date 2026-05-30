@@ -148,7 +148,7 @@ extern "C" __declspec(noinline) void __cdecl LogPassGeometryOnly(DWORD passer, D
     DWORD rBallDistRaw = ReadPlayerBallDistanceRaw(receiver);
 
     LogFormat(
-        "[GEOM_CTX] count=%u passer=0x%08X receiver=0x%08X "
+        "[GEOM_CTX] passId=%u passer=0x%08X receiver=0x%08X "
         "hasBall=%u "
         "pPhys=0x%08X rPhys=0x%08X hasPPhys=%u hasRPhys=%u "
         "hasPLogic=%u hasRLogic=%u "

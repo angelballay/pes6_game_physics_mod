@@ -68,3 +68,20 @@ bool WriteJump(uintptr_t source, void* destination, size_t length)
 
     return true;
 }
+
+bool WriteFloat(uintptr_t address, float value)
+{
+    DWORD oldProtect = 0;
+    if (!VirtualProtect((void*)address, sizeof(float), PAGE_EXECUTE_READWRITE, &oldProtect))
+    {
+        LogFormat("[ERROR] VirtualProtect fallo en WriteFloat 0x%08X", (unsigned int)address);
+        return false;
+    }
+
+    *(float*)address = value;
+
+    DWORD temp = 0;
+    VirtualProtect((void*)address, sizeof(float), oldProtect, &temp);
+
+    return true;
+}
