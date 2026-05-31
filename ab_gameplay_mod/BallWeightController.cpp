@@ -65,7 +65,7 @@ namespace
         DWORD lastAppliedBits = 0xFFFFFFFF;
 
         LogFormat(
-            "[BALL_WEIGHT] Controller iniciado. overall=%.3f possession=%.3f",
+            "[BALL_WEIGHT] Controller iniciado (Independiente). overall=%.3f possession=%.3f",
             GetOverallBallWeight(),
             GetPossessionBallWeight()
         );
@@ -73,12 +73,6 @@ namespace
         while (InterlockedCompareExchange(&g_controllerRunning, 0, 0) != 0)
         {
             Sleep(10);
-
-            if (!IsPhysicsModEnabled())
-            {
-                ApplyBallWeightIfChanged(VANILLA_BALL_WEIGHT, &lastAppliedBits);
-                continue;
-            }
 
             DWORD state = 0xFFFFFFFF;
             float target = GetOverallBallWeight();
