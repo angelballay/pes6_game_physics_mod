@@ -10,6 +10,8 @@
 #include "ModState.h"
 #include "HotkeyToggle.h"
 #include "KitserverOverlay.h"
+#include "GameplayConfig.h"
+#include "BallWeightController.h"
 
 // ------------------------------------------------------------
 // Globals
@@ -79,16 +81,21 @@ static void LogCurrentContext(DWORD ctxCount)
 // Monitor thread
 // ------------------------------------------------------------
 
-static DWORD WINAPI MainThread(LPVOID)
+static DWORD WINAPI MainThread(LPVOID param)
 {
+    HMODULE dllModule = (HMODULE)param;
+
     Sleep(1000);
 
     WriteLog("========================================");
     WriteLog("pes6_game_physics_mod.dll cargada.");
     WriteLog("Autor: pitycharly");
-    WriteLog("Version: 1.0");
+    WriteLog("Version: 1.1");
     WriteLog("Descripcion: mod de fisicas de pases desarrollado por pitycharly.");
+    WriteLog("Version interna: 1.1 experimental - PS2-style dribble");
     WriteLog("========================================");
+
+    LoadGameplayPhysicsConfig(dllModule);
 
     HMODULE exeModule = GetModuleHandleA(nullptr);
 
@@ -114,6 +121,15 @@ static DWORD WINAPI MainThread(LPVOID)
         return 0;
     }
     SetPhysicsModEnabled(true);
+
+    if (StartBallWeightController(g_base))
+    {
+        WriteLog("[OK] BallWeightController activo.");
+    }
+    else
+    {
+        WriteLog("[WARN] BallWeightController no pudo iniciar.");
+    }
 
     if (InstallKitserverOverlay())
     {
@@ -201,7 +217,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD reason, LPVOID reserved)
             nullptr,
             0,
             MainThread,
-            nullptr,
+            hModule,
             0,
             nullptr
         );
@@ -217,6 +233,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD reason, LPVOID reserved)
     case DLL_PROCESS_DETACH:
     {
         g_running = false;
+        StopBallWeightController();
         StopHotkeyToggle();
         UninstallKitserverOverlay();
         WriteLog("pes6_passspeed.dll descargada.");
