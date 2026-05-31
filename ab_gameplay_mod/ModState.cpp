@@ -1,17 +1,13 @@
 #include "pch.h"
 #include "ModState.h"
-#include "GameplayConfig.h"
-#include "MemoryPatch.h"
 
 #include <windows.h>
 
-// El mod arranca activado por defecto.
+// El mod de pases arranca activado por defecto.
+// Importante: el BallWeightController NO depende de este toggle.
+// El peso de pelota queda siempre gestionado por su propio controller
+// para evitar restauraciones peligrosas en medio del partido.
 static volatile LONG g_physicsModEnabled = 1;
-
-// Direccion absoluta historica de la constante fisica de peso/magnetismo.
-// Se mantiene aqui para no acoplar el toggle al base address del EXE.
-constexpr uintptr_t BALL_WEIGHT_ADDRESS = 0x00B8AE70;
-constexpr float VANILLA_BALL_WEIGHT = 188.0f;
 
 bool IsPhysicsModEnabled()
 {

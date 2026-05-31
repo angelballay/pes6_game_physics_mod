@@ -141,6 +141,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="BallWeightController.h" />
+    <ClInclude Include="BallActionGuards.h" />
     <ClInclude Include="ConfigStore.h" />
     <ClInclude Include="GameplayConfig.h" />
     <ClInclude Include="framework.h" />
@@ -158,6 +159,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="BallWeightController.cpp" />
+    <ClCompile Include="BallActionGuards.cpp" />
     <ClCompile Include="ConfigStore.cpp" />
     <ClCompile Include="GameplayConfig.cpp" />
     <ClCompile Include="dllmain.cpp" />

@@ -4,8 +4,8 @@
 #include "GameplayConfig.h"
 #include "Logger.h"
 #include "MemoryPatch.h"
-#include "ModState.h"
 #include "PesAddresses.h"
+#include "BallActionGuards.h"
 
 #include <windows.h>
 #include <stdint.h>
@@ -65,7 +65,7 @@ namespace
         DWORD lastAppliedBits = 0xFFFFFFFF;
 
         LogFormat(
-            "[BALL_WEIGHT] Controller iniciado (Independiente). overall=%.3f possession=%.3f",
+            "[BALL_WEIGHT] Controller iniciado. overall=%.3f possession=%.3f",
             GetOverallBallWeight(),
             GetPossessionBallWeight()
         );
@@ -77,7 +77,12 @@ namespace
             DWORD state = 0xFFFFFFFF;
             float target = GetOverallBallWeight();
 
-            if (ReadBallState(&state) && state == BALL_STATE_POSSESSION)
+            const bool forceOverallForAction =
+                ShouldUseOverallBallWeightForActionGuard(g_pesBase);
+
+            if (!forceOverallForAction &&
+                ReadBallState(&state) &&
+                state == BALL_STATE_POSSESSION)
             {
                 target = GetPossessionBallWeight();
             }

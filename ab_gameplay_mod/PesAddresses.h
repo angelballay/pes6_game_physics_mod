@@ -69,5 +69,9 @@ namespace PesOffsets
 
     // Estado/tipo de accion del balon observado en pruebas:
     //   0 = conduccion/control con pelota
+    //   1 = pase S/W
+    //   3 = centro/corner
+    //   4 = tiro/remate
+    //   5 = pelota quieta/control detenido
     constexpr uintptr_t BALL_STATE = 0x84;
 }
