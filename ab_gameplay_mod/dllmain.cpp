@@ -12,6 +12,7 @@
 #include "KitserverOverlay.h"
 #include "GameplayConfig.h"
 #include "BallWeightController.h"
+#include "ActorDebugLogger.h"
 
 // ------------------------------------------------------------
 // Globals
@@ -108,6 +109,15 @@ static DWORD WINAPI MainThread(LPVOID param)
     g_base = (uintptr_t)exeModule;
 
     LogFormat("Base del EXE: 0x%08X", (unsigned int)g_base);
+
+    if (InstallActorDebugLogger(g_base))
+    {
+        LogFormat("[OK] ActorDebugLogger activo.");
+    }
+    else
+    {
+        LogFormat("[WARN] ActorDebugLogger no se pudo activar.");
+    }
 
     if (!InstallContextHook(g_base))
     {

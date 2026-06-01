@@ -57,6 +57,15 @@
     <ClInclude Include="BallWeightController.h">
       <Filter>Archivos de origen</Filter>
     </ClInclude>
+    <ClInclude Include="BallActionGuards.h">
+      <Filter>Archivos de encabezado</Filter>
+    </ClInclude>
+    <ClInclude Include="resource.h">
+      <Filter>Archivos de encabezado</Filter>
+    </ClInclude>
+    <ClInclude Include="ActorDebugLogger.h">
+      <Filter>Archivos de encabezado</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dllmain.cpp">
@@ -96,6 +105,12 @@
       <Filter>Archivos de origen</Filter>
     </ClCompile>
     <ClCompile Include="BallWeightController.cpp">
+      <Filter>Archivos de origen</Filter>
+    </ClCompile>
+    <ClCompile Include="BallActionGuards.cpp">
+      <Filter>Archivos de origen</Filter>
+    </ClCompile>
+    <ClCompile Include="ActorDebugLogger.cpp">
       <Filter>Archivos de origen</Filter>
     </ClCompile>
   </ItemGroup>

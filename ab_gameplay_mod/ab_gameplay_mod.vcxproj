@@ -140,6 +140,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="ActorDebugLogger.h" />
     <ClInclude Include="BallWeightController.h" />
     <ClInclude Include="BallActionGuards.h" />
     <ClInclude Include="ConfigStore.h" />
@@ -158,6 +159,7 @@
     <ClInclude Include="resource.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="ActorDebugLogger.cpp" />
     <ClCompile Include="BallWeightController.cpp" />
     <ClCompile Include="BallActionGuards.cpp" />
     <ClCompile Include="ConfigStore.cpp" />

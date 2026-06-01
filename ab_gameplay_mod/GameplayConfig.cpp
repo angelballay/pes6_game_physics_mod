@@ -91,9 +91,32 @@ namespace
         return oss.str();
     }
 
-    static float ReadValidatedBallWeight(const char* key, float defaultValue)
+    static std::string GetPropertyWithAliases(const char* key, const char* const* aliases, int aliasCount)
     {
         std::string raw = ConfigStore::GetProperty(key, "");
+        if (!raw.empty())
+            return raw;
+
+        for (int i = 0; i < aliasCount; ++i)
+        {
+            const char* alias = aliases[i];
+            if (!alias || !alias[0])
+                continue;
+
+            raw = ConfigStore::GetProperty(alias, "");
+            if (!raw.empty())
+            {
+                LogFormat("[CFG] Usando alias %s para %s. Valor='%s'", alias, key, raw.c_str());
+                return raw;
+            }
+        }
+
+        return std::string();
+    }
+
+    static float ReadValidatedBallWeight(const char* key, float defaultValue, const char* const* aliases = nullptr, int aliasCount = 0)
+    {
+        std::string raw = GetPropertyWithAliases(key, aliases, aliasCount);
         bool shouldRewrite = false;
         float value = defaultValue;
 
@@ -116,7 +139,10 @@ namespace
             shouldRewrite = true;
         }
 
-        if (shouldRewrite)
+        // Siempre normalizamos la key canonica para evitar que el mod vuelva
+        // a caer al default por errores de nombre o por editar otro alias.
+        std::string canonicalRaw = ConfigStore::GetProperty(key, "");
+        if (canonicalRaw.empty() || shouldRewrite)
         {
             ConfigStore::EditProperty(key, FormatFloatForCfg(value));
         }
@@ -131,15 +157,24 @@ bool LoadGameplayPhysicsConfig(HMODULE moduleHandle)
 
     // Aunque no exista, Load deja seteada la ruta y luego EditProperty crea el archivo.
     ConfigStore::Load(path.c_str());
+    LogFormat("[CFG] Ruta efectiva gameplay physics: %s", ConfigStore::GetConfigPath());
 
     g_config.overallBallWeight = ReadValidatedBallWeight(
         KEY_OVERALL_BALL_WEIGHT,
         DEFAULT_OVERALL_BALL_WEIGHT
     );
 
+    const char* possessionAliases[] = {
+        "possession_ball_weight",  // nombre alternativo natural
+        "ball_weight_possesion",   // typo comun: una 's' menos en possession
+        "ball_weight_posession"    // typo comun: posession
+    };
+
     g_config.possessionBallWeight = ReadValidatedBallWeight(
         KEY_POSSESSION_BALL_WEIGHT,
-        DEFAULT_POSSESSION_BALL_WEIGHT
+        DEFAULT_POSSESSION_BALL_WEIGHT,
+        possessionAliases,
+        sizeof(possessionAliases) / sizeof(possessionAliases[0])
     );
 
     LogFormat(
