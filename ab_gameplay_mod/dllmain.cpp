@@ -12,8 +12,8 @@
 #include "KitserverOverlay.h"
 #include "GameplayConfig.h"
 #include "BallWeightController.h"
+#include "BallActorTracker.h"
 #include "ActorDebugLogger.h"
-
 // ------------------------------------------------------------
 // Globals
 // ------------------------------------------------------------
@@ -110,6 +110,15 @@ static DWORD WINAPI MainThread(LPVOID param)
 
     LogFormat("Base del EXE: 0x%08X", (unsigned int)g_base);
 
+    if (InstallBallActorTracker(g_base))
+    {
+        LogFormat("[OK] BallActorTracker activo.");
+    }
+    else
+    {
+        LogFormat("[WARN] BallActorTracker no se pudo activar.");
+    }
+
     if (InstallActorDebugLogger(g_base))
     {
         LogFormat("[OK] ActorDebugLogger activo.");
@@ -118,6 +127,7 @@ static DWORD WINAPI MainThread(LPVOID param)
     {
         LogFormat("[WARN] ActorDebugLogger no se pudo activar.");
     }
+
 
     if (!InstallContextHook(g_base))
     {

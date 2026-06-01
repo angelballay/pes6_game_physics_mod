@@ -63,6 +63,9 @@
     <ClInclude Include="resource.h">
       <Filter>Archivos de encabezado</Filter>
     </ClInclude>
+    <ClInclude Include="BallActorTracker.h">
+      <Filter>Archivos de encabezado</Filter>
+    </ClInclude>
     <ClInclude Include="ActorDebugLogger.h">
       <Filter>Archivos de encabezado</Filter>
     </ClInclude>
@@ -110,6 +113,9 @@
     <ClCompile Include="BallActionGuards.cpp">
       <Filter>Archivos de origen</Filter>
     </ClCompile>
+    <ClCompile Include="BallActorTracker.cpp">
+      <Filter>Archivos de origen</Filter>
+    </ClCompile>
     <ClCompile Include="ActorDebugLogger.cpp">
       <Filter>Archivos de origen</Filter>
     </ClCompile>
@@ -123,5 +129,7 @@
     <None Include="pes6_game_physics_mod.cfg">
       <Filter>Archivos de recursos</Filter>
     </None>
+    <None Include=".gitignore" />
+    <None Include="version.aps" />
   </ItemGroup>
 </Project>
