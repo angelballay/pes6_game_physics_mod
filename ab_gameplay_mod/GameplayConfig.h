@@ -1,20 +1,14 @@
 #pragma once
-
 #include <windows.h>
 #include <cstdint>
 
 // ------------------------------------------------------------
 // Capa de mapeo/validacion de configuracion del mod
 // ------------------------------------------------------------
-
 struct GameplayPhysicsConfig
 {
     float overallBallWeight;
-
-    // ball+84 == 1
     float ballWeightState1;
-
-    // ball+84 == 0, conduccion/control
     float normalDribbleBallWeight;
     float r1BallWeight;
     float r2BallWeight;
@@ -42,8 +36,8 @@ float GetBallWeightNormalDribble();
 float GetBallWeightR1();
 float GetBallWeightR2();
 float GetBallWeightR1R2();
-uint32_t GetProtectedActionLatchMs();
 
+uint32_t GetProtectedActionLatchMs();
 uint32_t GetR2ChargeWindowMs();
 uint32_t GetR2ChargeStartDistMax();
 uint32_t GetR2ChargeKeepDistMax();

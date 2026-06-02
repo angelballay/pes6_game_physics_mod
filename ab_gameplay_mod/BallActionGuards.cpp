@@ -1,8 +1,6 @@
 #include "pch.h"
 #include "BallActionGuards.h"
-
 #include "GameplayConfig.h"
-
 #include <windows.h>
 #include <cstdint>
 
@@ -12,9 +10,9 @@ namespace
 
     // Firmas vistas en player+B0:
     // D / centro por arriba: 0x00122000, a veces con bits extra de direccion.
-    // A / tiro:             0x00488000.
+    // A / tiro: 0x00488000.
     constexpr uint32_t CROSS_MASK = 0x00122000;
-    constexpr uint32_t SHOT_MASK  = 0x00488000;
+    constexpr uint32_t SHOT_MASK = 0x00488000;
 
     static ULONGLONG g_lastProtectedActionTick = 0;
 
@@ -50,6 +48,7 @@ namespace
     uint16_t GetAnim30(uintptr_t player)
     {
         const uintptr_t animPtr = ReadOr<uintptr_t>(player + 0x04, 0);
+
         if (!animPtr)
             return 0;
 
@@ -62,10 +61,12 @@ namespace
             return false;
 
         const uint8_t id = ReadOr<uint8_t>(player + 0x00, 0xFF);
+
         if (id == 0xFF || id > 31)
             return false;
 
         const uintptr_t animPtr = ReadOr<uintptr_t>(player + 0x04, 0);
+
         if (!animPtr)
             return false;
 
@@ -90,11 +91,14 @@ namespace
             hasCrossMask ||
             hasShotMask;
 
-        // Centro D / centro corriendo. Importante:
-        // en algunas fases b0 pierde CROSS_MASK, pero p16=9 + anim30 sigue marcando centro.
+        // Centro D / centro corriendo.
+        // En algunas fases b0 pierde CROSS_MASK, pero p16=9 / p18=16 / anim30
+        // sigue marcando carga de centro. Esto evita que el controller vuelva a 305
+        // durante la prediccion visual de caida.
         const bool crossByP16 =
             p16 == 9 &&
             (
+                p18 == 16 ||
                 anim30 == 0x0011 ||
                 anim30 == 0x0018 ||
                 anim30 == 0x0224 ||
@@ -102,7 +106,12 @@ namespace
                 anim30 == 0x0227 ||
                 anim30 == 0x00EC ||
                 anim30 == 0x00EB
-                );
+            );
+
+        // Fase generica de carga de centro: se vio b0=0x00000200 + p16=9.
+        const bool crossGenericLoad =
+            (b0 & 0x00000200) == 0x00000200 &&
+            p16 == 9;
 
         // Q + W / pase alto especial.
         const bool lobPassQW =
@@ -112,7 +121,6 @@ namespace
             p4F >= 20 &&
             p4F <= 60;
 
-        // Variante vieja que ya habíamos visto.
         const bool possessionCrossVariant =
             p16 == 32 &&
             anim30 == 0x00EB;
@@ -120,6 +128,7 @@ namespace
         return
             knownKick ||
             crossByP16 ||
+            crossGenericLoad ||
             possessionCrossVariant ||
             lobPassQW;
     }

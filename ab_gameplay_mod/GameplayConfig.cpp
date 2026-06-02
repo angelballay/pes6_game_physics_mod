@@ -22,26 +22,18 @@ namespace
     constexpr float DEFAULT_R1_BALL_WEIGHT = 305.0f;
     constexpr float DEFAULT_R2_BALL_WEIGHT = 230.0f;
     constexpr float DEFAULT_R1_R2_BALL_WEIGHT = 188.0f;
+
     constexpr uint32_t DEFAULT_PROTECTED_ACTION_LATCH_MS = 0;
-
-    constexpr float MIN_BALL_WEIGHT = 0.0f;
-    constexpr float MAX_BALL_WEIGHT = 999.0f;
-
-    constexpr uint32_t MIN_LATCH_MS = 0;
-    constexpr uint32_t MAX_LATCH_MS = 5000;
-
-    constexpr int DEFAULT_R2_CHARGE_WINDOW_MS = 600;
-
     constexpr uint32_t DEFAULT_R2_CHARGE_WINDOW_MS = 600;
     constexpr uint32_t DEFAULT_R2_CHARGE_START_DIST_MAX = 400;
     constexpr uint32_t DEFAULT_R2_CHARGE_KEEP_DIST_MAX = 700;
 
-    const char* KEY_R2_CHARGE_WINDOW_MS = "r2_charge_window_ms";
-    const char* KEY_R2_CHARGE_START_DIST_MAX = "r2_charge_start_dist_max";
-    const char* KEY_R2_CHARGE_KEEP_DIST_MAX = "r2_charge_keep_dist_max";
+    constexpr float MIN_BALL_WEIGHT = 0.0f;
+    constexpr float MAX_BALL_WEIGHT = 999.0f;
 
+    constexpr uint32_t MIN_MS = 0;
+    constexpr uint32_t MAX_MS = 5000;
 
-    constexpr const char* KEY_R2_CHARGE_WINDOW_MS = "r2_charge_window_ms";
     const char* KEY_OVERALL_BALL_WEIGHT = "overall_ball_weight";
     const char* KEY_BALL_WEIGHT_STATE_1 = "ball_weight_state_1";
     const char* KEY_NORMAL_DRIBBLE_BALL_WEIGHT = "ball_weight_normal_dribble";
@@ -50,20 +42,22 @@ namespace
     const char* KEY_R1_R2_BALL_WEIGHT = "ball_weight_r1_r2";
     const char* KEY_PROTECTED_ACTION_LATCH_MS = "protected_action_latch_ms";
 
+    const char* KEY_R2_CHARGE_WINDOW_MS = "r2_charge_window_ms";
+    const char* KEY_R2_CHARGE_START_DIST_MAX = "r2_charge_start_dist_max";
+    const char* KEY_R2_CHARGE_KEEP_DIST_MAX = "r2_charge_keep_dist_max";
+
     GameplayPhysicsConfig g_config = {
-       DEFAULT_OVERALL_BALL_WEIGHT,
-       DEFAULT_BALL_WEIGHT_STATE_1,
-       DEFAULT_NORMAL_DRIBBLE_BALL_WEIGHT,
-       DEFAULT_R1_BALL_WEIGHT,
-       DEFAULT_R2_BALL_WEIGHT,
-       DEFAULT_R1_R2_BALL_WEIGHT,
-       DEFAULT_PROTECTED_ACTION_LATCH_MS,
-
-       DEFAULT_R2_CHARGE_WINDOW_MS,
-       DEFAULT_R2_CHARGE_START_DIST_MAX,
-       DEFAULT_R2_CHARGE_KEEP_DIST_MAX,
-
-       DEFAULT_R1_BALL_WEIGHT
+        DEFAULT_OVERALL_BALL_WEIGHT,
+        DEFAULT_BALL_WEIGHT_STATE_1,
+        DEFAULT_NORMAL_DRIBBLE_BALL_WEIGHT,
+        DEFAULT_R1_BALL_WEIGHT,
+        DEFAULT_R2_BALL_WEIGHT,
+        DEFAULT_R1_R2_BALL_WEIGHT,
+        DEFAULT_PROTECTED_ACTION_LATCH_MS,
+        DEFAULT_R2_CHARGE_WINDOW_MS,
+        DEFAULT_R2_CHARGE_START_DIST_MAX,
+        DEFAULT_R2_CHARGE_KEEP_DIST_MAX,
+        DEFAULT_R1_BALL_WEIGHT
     };
 
     static std::string BuildConfigPath(HMODULE moduleHandle)
@@ -73,6 +67,7 @@ namespace
         if (moduleHandle && GetModuleFileNameA(moduleHandle, path, MAX_PATH) > 0)
         {
             char* lastSlash = strrchr(path, '\\');
+
             if (lastSlash)
             {
                 *(lastSlash + 1) = '\0';
@@ -86,10 +81,12 @@ namespace
 
     static bool TryParseFloat(const std::string& text, float* outValue)
     {
-        if (!outValue) return false;
+        if (!outValue)
+            return false;
 
         char* end = nullptr;
         errno = 0;
+
         float value = strtof(text.c_str(), &end);
 
         if (text.c_str() == end || errno == ERANGE)
@@ -99,6 +96,7 @@ namespace
         {
             if (!std::isspace((unsigned char)*end))
                 return false;
+
             end++;
         }
 
@@ -108,10 +106,12 @@ namespace
 
     static bool TryParseUInt(const std::string& text, uint32_t* outValue)
     {
-        if (!outValue) return false;
+        if (!outValue)
+            return false;
 
         char* end = nullptr;
         errno = 0;
+
         unsigned long value = strtoul(text.c_str(), &end, 10);
 
         if (text.c_str() == end || errno == ERANGE)
@@ -121,6 +121,7 @@ namespace
         {
             if (!std::isspace((unsigned char)*end))
                 return false;
+
             end++;
         }
 
@@ -130,21 +131,30 @@ namespace
 
     static float ClampBallWeight(float value)
     {
-        if (value < MIN_BALL_WEIGHT) return MIN_BALL_WEIGHT;
-        if (value > MAX_BALL_WEIGHT) return MAX_BALL_WEIGHT;
+        if (value < MIN_BALL_WEIGHT)
+            return MIN_BALL_WEIGHT;
+
+        if (value > MAX_BALL_WEIGHT)
+            return MAX_BALL_WEIGHT;
+
         return value;
     }
 
     static uint32_t ClampMs(uint32_t value)
     {
-        if (value < MIN_LATCH_MS) return MIN_LATCH_MS;
-        if (value > MAX_LATCH_MS) return MAX_LATCH_MS;
+        if (value < MIN_MS)
+            return MIN_MS;
+
+        if (value > MAX_MS)
+            return MAX_MS;
+
         return value;
     }
 
     static std::string FormatFloatForCfg(float value)
     {
         float rounded = floorf(value + 0.5f);
+
         if (fabsf(value - rounded) < 0.001f)
         {
             char buffer[32];
@@ -164,22 +174,29 @@ namespace
         return std::string(buffer);
     }
 
-    static std::string GetPropertyWithAliases(const char* key, const char* const* aliases, int aliasCount)
+    static std::string GetPropertyWithAliases(
+        const char* key,
+        const char* const* aliases,
+        int aliasCount)
     {
         std::string raw = ConfigStore::GetProperty(key, "");
+
         if (!raw.empty())
             return raw;
 
         for (int i = 0; i < aliasCount; ++i)
         {
             const char* alias = aliases[i];
+
             if (!alias || !alias[0])
                 continue;
 
             raw = ConfigStore::GetProperty(alias, "");
+
             if (!raw.empty())
             {
-                LogFormat("[CFG] Usando alias %s para %s. Valor='%s'", alias, key, raw.c_str());
+                LogFormat("[CFG] Usando alias %s para %s. Valor='%s'",
+                    alias, key, raw.c_str());
                 return raw;
             }
         }
@@ -187,9 +204,14 @@ namespace
         return std::string();
     }
 
-    static float ReadValidatedBallWeight(const char* key, float defaultValue, const char* const* aliases = nullptr, int aliasCount = 0)
+    static float ReadValidatedBallWeight(
+        const char* key,
+        float defaultValue,
+        const char* const* aliases = nullptr,
+        int aliasCount = 0)
     {
         std::string raw = GetPropertyWithAliases(key, aliases, aliasCount);
+
         bool shouldRewrite = false;
         float value = defaultValue;
 
@@ -199,24 +221,26 @@ namespace
         }
         else if (!TryParseFloat(raw, &value))
         {
-            LogFormat("[CFG] Valor invalido para %s='%s'. Usando %.1f", key, raw.c_str(), defaultValue);
+            LogFormat("[CFG] Valor invalido para %s='%s'. Usando %.1f",
+                key, raw.c_str(), defaultValue);
             value = defaultValue;
             shouldRewrite = true;
         }
 
         float clamped = ClampBallWeight(value);
+
         if (clamped != value)
         {
-            LogFormat("[CFG] Valor fuera de rango para %s=%.3f. Clamp a %.3f", key, value, clamped);
+            LogFormat("[CFG] Valor fuera de rango para %s=%.3f. Clamp a %.3f",
+                key, value, clamped);
             value = clamped;
             shouldRewrite = true;
         }
 
         std::string canonicalRaw = ConfigStore::GetProperty(key, "");
+
         if (canonicalRaw.empty() || shouldRewrite)
-        {
             ConfigStore::EditProperty(key, FormatFloatForCfg(value));
-        }
 
         return value;
     }
@@ -224,6 +248,7 @@ namespace
     static uint32_t ReadValidatedMs(const char* key, uint32_t defaultValue)
     {
         std::string raw = ConfigStore::GetProperty(key, "");
+
         bool shouldRewrite = false;
         uint32_t value = defaultValue;
 
@@ -233,81 +258,71 @@ namespace
         }
         else if (!TryParseUInt(raw, &value))
         {
-            LogFormat("[CFG] Valor invalido para %s='%s'. Usando %u", key, raw.c_str(), static_cast<unsigned int>(defaultValue));
+            LogFormat("[CFG] Valor invalido para %s='%s'. Usando %u",
+                key, raw.c_str(), static_cast<unsigned int>(defaultValue));
             value = defaultValue;
             shouldRewrite = true;
         }
 
         uint32_t clamped = ClampMs(value);
+
         if (clamped != value)
         {
-            LogFormat("[CFG] Valor fuera de rango para %s=%u. Clamp a %u", key, static_cast<unsigned int>(value), static_cast<unsigned int>(clamped));
+            LogFormat("[CFG] Valor fuera de rango para %s=%u. Clamp a %u",
+                key,
+                static_cast<unsigned int>(value),
+                static_cast<unsigned int>(clamped));
             value = clamped;
             shouldRewrite = true;
         }
 
         std::string canonicalRaw = ConfigStore::GetProperty(key, "");
+
         if (canonicalRaw.empty() || shouldRewrite)
-        {
             ConfigStore::EditProperty(key, FormatUIntForCfg(value));
-        }
 
         return value;
     }
 }
 
-
 bool LoadGameplayPhysicsConfig(HMODULE moduleHandle)
 {
     std::string path = BuildConfigPath(moduleHandle);
 
-    // Aunque no exista, Load deja seteada la ruta y luego EditProperty crea el archivo.
     ConfigStore::Load(path.c_str());
+
     LogFormat("[CFG] Ruta efectiva gameplay physics: %s", ConfigStore::GetConfigPath());
 
-    g_config.overallBallWeight = ReadValidatedBallWeight(
-        KEY_OVERALL_BALL_WEIGHT,
-        DEFAULT_OVERALL_BALL_WEIGHT
-    );
+    g_config.overallBallWeight =
+        ReadValidatedBallWeight(KEY_OVERALL_BALL_WEIGHT, DEFAULT_OVERALL_BALL_WEIGHT);
 
-    g_config.ballWeightState1 = ReadValidatedBallWeight(
-        KEY_BALL_WEIGHT_STATE_1,
-        DEFAULT_BALL_WEIGHT_STATE_1
-    );
+    g_config.ballWeightState1 =
+        ReadValidatedBallWeight(KEY_BALL_WEIGHT_STATE_1, DEFAULT_BALL_WEIGHT_STATE_1);
 
-    g_config.normalDribbleBallWeight = ReadValidatedBallWeight(
-        KEY_NORMAL_DRIBBLE_BALL_WEIGHT,
-        DEFAULT_NORMAL_DRIBBLE_BALL_WEIGHT
-    );
-
+    g_config.normalDribbleBallWeight =
+        ReadValidatedBallWeight(KEY_NORMAL_DRIBBLE_BALL_WEIGHT, DEFAULT_NORMAL_DRIBBLE_BALL_WEIGHT);
 
     const char* r1Aliases[] = {
-        "ball_weight_possession",  // legacy: antes era peso unico de posesion
-        "ball_weight_possesion",   // typo comun
-        "ball_weight_posession"    // typo comun
+        "ball_weight_possession",
+        "ball_weight_possesion",
+        "ball_weight_posession"
     };
 
-    g_config.r1BallWeight = ReadValidatedBallWeight(
-        KEY_R1_BALL_WEIGHT,
-        DEFAULT_R1_BALL_WEIGHT,
-        r1Aliases,
-        sizeof(r1Aliases) / sizeof(r1Aliases[0])
-    );
+    g_config.r1BallWeight =
+        ReadValidatedBallWeight(
+            KEY_R1_BALL_WEIGHT,
+            DEFAULT_R1_BALL_WEIGHT,
+            r1Aliases,
+            sizeof(r1Aliases) / sizeof(r1Aliases[0]));
 
-    g_config.r2BallWeight = ReadValidatedBallWeight(
-        KEY_R2_BALL_WEIGHT,
-        DEFAULT_R2_BALL_WEIGHT
-    );
+    g_config.r2BallWeight =
+        ReadValidatedBallWeight(KEY_R2_BALL_WEIGHT, DEFAULT_R2_BALL_WEIGHT);
 
-    g_config.r1R2BallWeight = ReadValidatedBallWeight(
-        KEY_R1_R2_BALL_WEIGHT,
-        DEFAULT_R1_R2_BALL_WEIGHT
-    );
+    g_config.r1R2BallWeight =
+        ReadValidatedBallWeight(KEY_R1_R2_BALL_WEIGHT, DEFAULT_R1_R2_BALL_WEIGHT);
 
-    g_config.protectedActionLatchMs = ReadValidatedMs(
-        KEY_PROTECTED_ACTION_LATCH_MS,
-        DEFAULT_PROTECTED_ACTION_LATCH_MS
-    );
+    g_config.protectedActionLatchMs =
+        ReadValidatedMs(KEY_PROTECTED_ACTION_LATCH_MS, DEFAULT_PROTECTED_ACTION_LATCH_MS);
 
     g_config.r2ChargeWindowMs =
         ReadValidatedMs(KEY_R2_CHARGE_WINDOW_MS, DEFAULT_R2_CHARGE_WINDOW_MS);
@@ -318,11 +333,12 @@ bool LoadGameplayPhysicsConfig(HMODULE moduleHandle)
     g_config.r2ChargeKeepDistMax =
         ReadValidatedMs(KEY_R2_CHARGE_KEEP_DIST_MAX, DEFAULT_R2_CHARGE_KEEP_DIST_MAX);
 
-    // Compatibilidad para codigo viejo. Ya no se usa como regla principal.
     g_config.possessionBallWeight = g_config.r1BallWeight;
 
     LogFormat(
-        "[CFG] Pesos cargados: overall=%.3f state1=%.3f normal=%.3f r1=%.3f r2=%.3f r1r2=%.3f latchMs=%u r2ChargeMs=%u r2StartDist=%u r2KeepDist=%u",
+        "[CFG] Pesos cargados: overall=%.3f state1=%.3f normal=%.3f "
+        "r1=%.3f r2=%.3f r1r2=%.3f latchMs=%u "
+        "r2ChargeMs=%u r2StartDist=%u r2KeepDist=%u",
         g_config.overallBallWeight,
         g_config.ballWeightState1,
         g_config.normalDribbleBallWeight,
@@ -332,25 +348,9 @@ bool LoadGameplayPhysicsConfig(HMODULE moduleHandle)
         static_cast<unsigned int>(g_config.protectedActionLatchMs),
         static_cast<unsigned int>(g_config.r2ChargeWindowMs),
         static_cast<unsigned int>(g_config.r2ChargeStartDistMax),
-        static_cast<unsigned int>(g_config.r2ChargeKeepDistMax)
-    );
+        static_cast<unsigned int>(g_config.r2ChargeKeepDistMax));
 
     return true;
-}
-
-uint32_t GetR2ChargeWindowMs()
-{
-    return g_config.r2ChargeWindowMs;
-}
-
-uint32_t GetR2ChargeStartDistMax()
-{
-    return g_config.r2ChargeStartDistMax;
-}
-
-uint32_t GetR2ChargeKeepDistMax()
-{
-    return g_config.r2ChargeKeepDistMax;
 }
 
 const GameplayPhysicsConfig& GetGameplayPhysicsConfig()
@@ -391,6 +391,21 @@ float GetBallWeightR1R2()
 uint32_t GetProtectedActionLatchMs()
 {
     return g_config.protectedActionLatchMs;
+}
+
+uint32_t GetR2ChargeWindowMs()
+{
+    return g_config.r2ChargeWindowMs;
+}
+
+uint32_t GetR2ChargeStartDistMax()
+{
+    return g_config.r2ChargeStartDistMax;
+}
+
+uint32_t GetR2ChargeKeepDistMax()
+{
+    return g_config.r2ChargeKeepDistMax;
 }
 
 float GetPossessionBallWeight()

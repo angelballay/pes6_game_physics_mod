@@ -184,24 +184,11 @@ namespace
         const uint32_t ball50 = ReadBallU32(0x50, 0);
         const uint32_t ball88 = ReadBallU32(0x88, 0);
 
-        // De momento investigamos conducción/control.
+        // Solo usamos snapshot de conducción/control.
         if (ball84 != 0)
             return;
 
         const ULONGLONG now = GetTickCount64();
-
-        // Evita destruir rendimiento/escribir miles de líneas.
-        // 25 ms captura bastante sin congelar el juego.
-        if (now - g_lastTouchDbgTick < 25)
-            return;
-
-        g_lastTouchDbgTick = now;
-
-        const LONG count = InterlockedIncrement(&g_touchDbgCount);
-
-        // Límite de seguridad por sesión. Si necesitás más, subilo.
-        if (count > 2000)
-            return;
 
         const uint32_t b0 = ReadOr<uint32_t>(player + 0xB0, 0);
         const uint32_t dirBits = b0 & 0xF0;
@@ -243,7 +230,21 @@ namespace
         snap.shot = shot;
         snap.tick = now;
 
+        // IMPORTANTE:
+        // El contexto debe guardarse SIEMPRE.
+        // El throttle solo debe afectar la escritura del log.
         StoreTouchDebugSnapshot(snap);
+
+        // Desde acá limitamos únicamente el log.
+        if (now - g_lastTouchDbgTick < 25)
+            return;
+
+        g_lastTouchDbgTick = now;
+
+        const LONG count = InterlockedIncrement(&g_touchDbgCount);
+
+        if (count > 2000)
+            return;
 
         LogFormat(
             "[TOUCHDBG] n=%ld src=%u player=0x%08X id=%u "
