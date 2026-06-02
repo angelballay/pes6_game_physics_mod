@@ -51,6 +51,9 @@ namespace PesAddresses
     // Direccion absoluta historica: 00B8AE70
     // Offset relativo a pes6.exe: pes6.exe+78AE70
     constexpr uintptr_t BALL_WEIGHT_STATIC = 0x78AE70;
+
+    constexpr uintptr_t ACTIVE_PLAYER_PTR = 0x37E0AA0;
+    constexpr uintptr_t BALL_ACTOR_ID = 0x37E09CC;
 }
 
 // ------------------------------------------------------------

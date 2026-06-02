@@ -74,6 +74,32 @@ namespace
     }
 
     template <typename T>
+    T ReadOr(uintptr_t address, T fallback = T{})
+    {
+        T value{};
+        return SafeRead<T>(address, value) ? value : fallback;
+    }
+
+
+    static bool LooksLikeValidPlayer(uintptr_t player)
+    {
+        if (player < 0x01000000 || player > 0x08000000)
+            return false;
+
+        const uint8_t id = ReadOr<uint8_t>(player + 0x00, 0xFF);
+
+        if (id == 0xFF || id > 31)
+            return false;
+
+        const uintptr_t animPtr = ReadOr<uintptr_t>(player + 0x04, 0);
+
+        if (!animPtr)
+            return false;
+
+        return true;
+    }
+
+    template <typename T>
     bool SafeRead(uintptr_t address, T& out)
     {
         __try
@@ -85,13 +111,6 @@ namespace
         {
             return false;
         }
-    }
-
-    template <typename T>
-    T ReadOr(uintptr_t address, T fallback = T{})
-    {
-        T value{};
-        return SafeRead<T>(address, value) ? value : fallback;
     }
 
     static bool ReadBallState(DWORD* outState)
@@ -113,6 +132,82 @@ namespace
         {
             return false;
         }
+    }
+
+    static uint8_t ReadCurrentBallActorId()
+    {
+        if (!g_pesBase)
+            return 0xFF;
+
+        return ReadOr<uint8_t>(g_pesBase + PesAddresses::BALL_ACTOR_ID, 0xFF);
+    }
+
+    static uintptr_t GetActivePlayerFromGlobal()
+    {
+        if (!g_pesBase)
+            return 0;
+
+        const uintptr_t player =
+            ReadOr<uintptr_t>(g_pesBase + PesAddresses::ACTIVE_PLAYER_PTR, 0);
+
+        return LooksLikeValidPlayer(player) ? player : 0;
+    }
+
+    static bool PlayerMatchesCurrentBallActor(uintptr_t player)
+    {
+        if (!LooksLikeValidPlayer(player))
+            return false;
+
+        const uint8_t currentActorId = ReadCurrentBallActorId();
+        const uint8_t playerId = ReadOr<uint8_t>(player + 0x00, 0xFF);
+
+        if (currentActorId == 0xFF || currentActorId == 0)
+            return false;
+
+        return playerId == currentActorId;
+    }
+
+    static bool PlayerHasUsefulControlInput(uintptr_t player)
+    {
+        if (!LooksLikeValidPlayer(player))
+            return false;
+
+        const uint32_t b0 = ReadOr<uint32_t>(player + 0xB0, 0);
+        const uint32_t dirBits = b0 & INPUT_DIR_MASK;
+
+        const bool r1 = (b0 & R1_MASK) == R1_MASK;
+        const bool r2 = (b0 & R2_MASK) == R2_MASK;
+
+        return dirBits != 0 || r1 || r2;
+    }
+
+    static bool PlayerIsCloseEnoughToBall(uintptr_t player)
+    {
+        if (!LooksLikeValidPlayer(player))
+            return false;
+
+        const uint32_t p114 = ReadOr<uint32_t>(player + 0x114, 999999);
+
+        // Usamos una distancia ya existente/configurable.
+        // Para conducción R1 recta debería estar cerca.
+        return p114 <= GetR2ChargeKeepDistMax();
+    }
+
+    static bool IsLiveBallOwnerCandidate(uintptr_t player)
+    {
+        if (!LooksLikeValidPlayer(player))
+            return false;
+
+        if (!PlayerMatchesCurrentBallActor(player))
+            return false;
+
+        if (!PlayerIsCloseEnoughToBall(player))
+            return false;
+
+        if (!PlayerHasUsefulControlInput(player))
+            return false;
+
+        return true;
     }
 
     static void ApplyBallWeightIfChanged(float value, DWORD* lastBits)
@@ -141,23 +236,7 @@ namespace
         return ReadOr<uint16_t>(animPtr + 0x30, 0);
     }
 
-    static bool LooksLikeValidPlayer(uintptr_t player)
-    {
-        if (player < 0x01000000 || player > 0x08000000)
-            return false;
 
-        const uint8_t id = ReadOr<uint8_t>(player + 0x00, 0xFF);
-
-        if (id == 0xFF || id > 31)
-            return false;
-
-        const uintptr_t animPtr = ReadOr<uintptr_t>(player + 0x04, 0);
-
-        if (!animPtr)
-            return false;
-
-        return true;
-    }
 
     static bool GetRecentTouchForSamePlayer(
         uintptr_t player,
@@ -303,31 +382,40 @@ namespace
 
     static uintptr_t GetRecentActorPlayer()
     {
-        const ULONGLONG now = GetTickCount64();
+        DWORD ballState = 0xFFFFFFFF;
 
-        // En conducci�n recta puede haber menos refresh de actor que en giros/toques.
-        constexpr ULONGLONG ACTOR_MAX_AGE_MS = 3500;
+        if (!ReadBallState(&ballState))
+            return 0;
 
-        const ULONGLONG actorTick = GetBallActorTick();
+        // Solo queremos resolver jugador vivo durante conducción/control.
+        // En pase, centro, tiro, pelota suelta, etc. no hay que arrastrar ownership.
+        if (ballState != BALL_STATE_POSSESSION)
+            return 0;
+
+        // 1) Primero probamos el player capturado por BallActorTracker.
+        // Ya no lo descartamos por edad: lo revalidamos contra memoria viva.
         const uintptr_t actorPlayer = GetBallActorPlayer();
 
-        if (actorTick != 0 &&
-            now - actorTick <= ACTOR_MAX_AGE_MS &&
-            LooksLikeValidPlayer(actorPlayer))
-        {
+        if (IsLiveBallOwnerCandidate(actorPlayer))
             return actorPlayer;
-        }
 
-        // Fallback desde el �ltimo hook/contacto real de pelota.
+        // 2) Fallback al último snapshot real de toque/contacto.
+        // Tampoco depende de 3500 ms: depende de que siga coincidiendo con el actor actual.
         BallTouchDebugSnapshot touch = {};
+
         if (GetLastTouchDebugSnapshot(&touch) &&
-            touch.tick != 0 &&
-            now - touch.tick <= ACTOR_MAX_AGE_MS &&
             touch.ball84 == BALL_STATE_POSSESSION &&
-            LooksLikeValidPlayer(touch.player))
+            IsLiveBallOwnerCandidate(touch.player))
         {
             return touch.player;
         }
+
+        // 3) Último fallback: jugador activo global del motor.
+        // Esto cubre carrera recta larga donde el actor hook no refresca.
+        const uintptr_t activePlayer = GetActivePlayerFromGlobal();
+
+        if (IsLiveBallOwnerCandidate(activePlayer))
+            return activePlayer;
 
         return 0;
     }
