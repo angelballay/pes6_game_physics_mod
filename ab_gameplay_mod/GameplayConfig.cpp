@@ -23,6 +23,10 @@ namespace
     constexpr float DEFAULT_R2_BALL_WEIGHT = 230.0f;
     constexpr float DEFAULT_R1_R2_BALL_WEIGHT = 188.0f;
 
+    constexpr ConductionMode DEFAULT_CONDUCTION_MODE = ConductionMode::Boost;
+    constexpr float DEFAULT_PRO_R1_BALL_WEIGHT = 188.0f;
+    constexpr float DEFAULT_PRO_R1_L2_BALL_WEIGHT = 305.0f;
+
     constexpr uint32_t DEFAULT_PROTECTED_ACTION_LATCH_MS = 0;
     constexpr uint32_t DEFAULT_R2_CHARGE_WINDOW_MS = 600;
     constexpr uint32_t DEFAULT_R2_CHARGE_START_DIST_MAX = 400;
@@ -39,12 +43,19 @@ namespace
     constexpr uint32_t MIN_MS = 0;
     constexpr uint32_t MAX_MS = 5000;
 
+    constexpr uint32_t DEFAULT_DEBUG_L2_INPUT = 0;
+    constexpr uint32_t DEFAULT_DEBUG_L2_INPUT_INTERVAL_MS = 80;
+    constexpr uint32_t DEFAULT_L2_MASK = 0;
+
     const char* KEY_OVERALL_BALL_WEIGHT = "overall_ball_weight";
     const char* KEY_BALL_WEIGHT_STATE_1 = "ball_weight_state_1";
     const char* KEY_NORMAL_DRIBBLE_BALL_WEIGHT = "ball_weight_normal_dribble";
     const char* KEY_R1_BALL_WEIGHT = "ball_weight_r1";
     const char* KEY_R2_BALL_WEIGHT = "ball_weight_r2";
     const char* KEY_R1_R2_BALL_WEIGHT = "ball_weight_r1_r2";
+    const char* KEY_CONDUCTION_MODE = "conduction_mode";
+    const char* KEY_PRO_R1_BALL_WEIGHT = "pro_ball_weight_r1";
+    const char* KEY_PRO_R1_L2_BALL_WEIGHT = "pro_ball_weight_r1_l2";
     const char* KEY_PROTECTED_ACTION_LATCH_MS = "protected_action_latch_ms";
 
     const char* KEY_R2_CHARGE_WINDOW_MS = "r2_charge_window_ms";
@@ -56,22 +67,32 @@ namespace
     const char* KEY_DEBUG_CHARGEDBG = "debug_chargedbg";
     const char* KEY_DEBUG_ACTOR_DEBUG_LOGGER = "debug_actor_debug_logger";
 
+    const char* KEY_DEBUG_L2_INPUT = "debug_l2_input";
+    const char* KEY_DEBUG_L2_INPUT_INTERVAL_MS = "debug_l2_input_interval_ms";
+    const char* KEY_L2_MASK = "l2_mask";
+
     GameplayPhysicsConfig g_config = {
-        DEFAULT_OVERALL_BALL_WEIGHT,
-        DEFAULT_BALL_WEIGHT_STATE_1,
-        DEFAULT_NORMAL_DRIBBLE_BALL_WEIGHT,
-        DEFAULT_R1_BALL_WEIGHT,
-        DEFAULT_R2_BALL_WEIGHT,
-        DEFAULT_R1_R2_BALL_WEIGHT,
-        DEFAULT_PROTECTED_ACTION_LATCH_MS,
-        DEFAULT_R2_CHARGE_WINDOW_MS,
-        DEFAULT_R2_CHARGE_START_DIST_MAX,
-        DEFAULT_R2_CHARGE_KEEP_DIST_MAX,
-        DEFAULT_R1_BALL_WEIGHT,
-        DEFAULT_DEBUG_TOUCHDBG,
-        DEFAULT_DEBUG_BWDEC,
-        DEFAULT_DEBUG_CHARGEDBG,
-        DEFAULT_DEBUG_ACTOR_DEBUG_LOGGER
+     DEFAULT_OVERALL_BALL_WEIGHT,
+     DEFAULT_BALL_WEIGHT_STATE_1,
+     DEFAULT_NORMAL_DRIBBLE_BALL_WEIGHT,
+     DEFAULT_R1_BALL_WEIGHT,
+     DEFAULT_R2_BALL_WEIGHT,
+     DEFAULT_R1_R2_BALL_WEIGHT,
+     DEFAULT_CONDUCTION_MODE,
+     DEFAULT_PRO_R1_BALL_WEIGHT,
+     DEFAULT_PRO_R1_L2_BALL_WEIGHT,
+     DEFAULT_PROTECTED_ACTION_LATCH_MS,
+     DEFAULT_R2_CHARGE_WINDOW_MS,
+     DEFAULT_R2_CHARGE_START_DIST_MAX,
+     DEFAULT_R2_CHARGE_KEEP_DIST_MAX,
+     DEFAULT_R1_BALL_WEIGHT,
+     DEFAULT_DEBUG_TOUCHDBG,
+     DEFAULT_DEBUG_BWDEC,
+     DEFAULT_DEBUG_CHARGEDBG,
+     DEFAULT_DEBUG_ACTOR_DEBUG_LOGGER,
+     DEFAULT_DEBUG_L2_INPUT,
+     DEFAULT_DEBUG_L2_INPUT_INTERVAL_MS,
+     DEFAULT_L2_MASK
     };
 
     static std::string BuildConfigPath(HMODULE moduleHandle)
@@ -142,7 +163,31 @@ namespace
         *outValue = static_cast<uint32_t>(value);
         return true;
     }
+    static bool TryParseUIntAutoBase(const std::string& text, uint32_t* outValue)
+    {
+        if (!outValue)
+            return false;
 
+        char* end = nullptr;
+        errno = 0;
+
+        // base 0 permite decimal y 0xHEX.
+        unsigned long value = strtoul(text.c_str(), &end, 0);
+
+        if (text.c_str() == end || errno == ERANGE)
+            return false;
+
+        while (end && *end)
+        {
+            if (!std::isspace((unsigned char)*end))
+                return false;
+
+            end++;
+        }
+
+        *outValue = static_cast<uint32_t>(value);
+        return true;
+    }
     static float ClampBallWeight(float value)
     {
         if (value < MIN_BALL_WEIGHT)
@@ -185,6 +230,13 @@ namespace
     {
         char buffer[32];
         sprintf_s(buffer, sizeof(buffer), "%u", static_cast<unsigned int>(value));
+        return std::string(buffer);
+    }
+
+    static std::string FormatHexUIntForCfg(uint32_t value)
+    {
+        char buffer[32];
+        sprintf_s(buffer, sizeof(buffer), "0x%08X", static_cast<unsigned int>(value));
         return std::string(buffer);
     }
 
@@ -328,6 +380,125 @@ namespace
 
         return value;
     }
+
+    static uint32_t ReadValidatedUIntAutoBase(const char* key, uint32_t defaultValue)
+    {
+        std::string raw = ConfigStore::GetProperty(key, "");
+        bool shouldRewrite = false;
+        uint32_t value = defaultValue;
+
+        if (raw.empty())
+        {
+            shouldRewrite = true;
+        }
+        else if (!TryParseUIntAutoBase(raw, &value))
+        {
+            LogFormat(
+                "[CFG] Valor invalido para %s='%s'. Usando 0x%08X",
+                key,
+                raw.c_str(),
+                static_cast<unsigned int>(defaultValue)
+            );
+            value = defaultValue;
+            shouldRewrite = true;
+        }
+
+        std::string canonicalRaw = ConfigStore::GetProperty(key, "");
+        if (canonicalRaw.empty() || shouldRewrite)
+            ConfigStore::EditProperty(key, FormatHexUIntForCfg(value));
+
+        return value;
+    }
+
+    static std::string ToLowerCopy(std::string value)
+    {
+        for (size_t i = 0; i < value.size(); ++i)
+            value[i] = static_cast<char>(std::tolower(static_cast<unsigned char>(value[i])));
+
+        return value;
+    }
+
+    static std::string TrimCopy(const std::string& value)
+    {
+        size_t start = 0;
+        while (start < value.size() && std::isspace(static_cast<unsigned char>(value[start])))
+            ++start;
+
+        size_t end = value.size();
+        while (end > start && std::isspace(static_cast<unsigned char>(value[end - 1])))
+            --end;
+
+        return value.substr(start, end - start);
+    }
+
+    static const char* ConductionModeToString(ConductionMode mode)
+    {
+        switch (mode)
+        {
+        case ConductionMode::Disabled: return "disabled";
+        case ConductionMode::Boost:    return "boost";
+        case ConductionMode::ProBoost: return "pro_boost";
+        default:                       return "boost";
+        }
+    }
+
+    static bool TryParseConductionMode(const std::string& raw, ConductionMode* outMode)
+    {
+        if (!outMode)
+            return false;
+
+        const std::string v = ToLowerCopy(TrimCopy(raw));
+
+        if (v == "disabled" || v == "disable" || v == "off" || v == "0")
+        {
+            *outMode = ConductionMode::Disabled;
+            return true;
+        }
+
+        if (v == "boost" || v == "standard" || v == "normal" || v == "1")
+        {
+            *outMode = ConductionMode::Boost;
+            return true;
+        }
+
+        if (v == "pro_boost" || v == "proboost" || v == "pro" || v == "2")
+        {
+            *outMode = ConductionMode::ProBoost;
+            return true;
+        }
+
+        return false;
+    }
+
+    static ConductionMode ReadValidatedConductionMode(const char* key, ConductionMode defaultValue)
+    {
+        std::string raw = ConfigStore::GetProperty(key, "");
+        bool shouldRewrite = false;
+        ConductionMode mode = defaultValue;
+
+        if (raw.empty())
+        {
+            shouldRewrite = true;
+        }
+        else if (!TryParseConductionMode(raw, &mode))
+        {
+            LogFormat(
+                "[CFG] Valor invalido para %s='%s'. Usando %s",
+                key,
+                raw.c_str(),
+                ConductionModeToString(defaultValue));
+            mode = defaultValue;
+            shouldRewrite = true;
+        }
+
+        std::string canonicalRaw = ConfigStore::GetProperty(key, "");
+        const std::string canonical = ConductionModeToString(mode);
+        if (canonicalRaw.empty() || shouldRewrite || ToLowerCopy(TrimCopy(canonicalRaw)) != canonical)
+            ConfigStore::EditProperty(key, canonical);
+
+        return mode;
+    }
+
 }
 
 bool LoadGameplayPhysicsConfig(HMODULE moduleHandle)
@@ -366,6 +537,15 @@ bool LoadGameplayPhysicsConfig(HMODULE moduleHandle)
     g_config.r1R2BallWeight =
         ReadValidatedBallWeight(KEY_R1_R2_BALL_WEIGHT, DEFAULT_R1_R2_BALL_WEIGHT);
 
+    g_config.conductionMode =
+        ReadValidatedConductionMode(KEY_CONDUCTION_MODE, DEFAULT_CONDUCTION_MODE);
+
+    g_config.proR1BallWeight =
+        ReadValidatedBallWeight(KEY_PRO_R1_BALL_WEIGHT, DEFAULT_PRO_R1_BALL_WEIGHT);
+
+    g_config.proR1L2BallWeight =
+        ReadValidatedBallWeight(KEY_PRO_R1_L2_BALL_WEIGHT, DEFAULT_PRO_R1_L2_BALL_WEIGHT);
+
     g_config.protectedActionLatchMs =
         ReadValidatedMs(KEY_PROTECTED_ACTION_LATCH_MS, DEFAULT_PROTECTED_ACTION_LATCH_MS);
 
@@ -390,18 +570,32 @@ bool LoadGameplayPhysicsConfig(HMODULE moduleHandle)
     g_config.debugActorDebugLogger =
         ReadValidatedFlag(KEY_DEBUG_ACTOR_DEBUG_LOGGER, DEFAULT_DEBUG_ACTOR_DEBUG_LOGGER);
 
+    g_config.debugL2Input =
+        ReadValidatedFlag(KEY_DEBUG_L2_INPUT, DEFAULT_DEBUG_L2_INPUT);
+
+    g_config.debugL2InputIntervalMs =
+        ReadValidatedMs(KEY_DEBUG_L2_INPUT_INTERVAL_MS, DEFAULT_DEBUG_L2_INPUT_INTERVAL_MS);
+
+    g_config.l2Mask =
+        ReadValidatedUIntAutoBase(KEY_L2_MASK, DEFAULT_L2_MASK);
+
     g_config.possessionBallWeight = g_config.r1BallWeight;
 
     LogFormat(
         "[CFG] Pesos cargados: overall=%.3f state1=%.3f normal=%.3f "
-        "r1=%.3f r2=%.3f r1r2=%.3f latchMs=%u "
-        "r2ChargeMs=%u r2StartDist=%u r2KeepDist=%u",
+        "r1=%.3f r2=%.3f r1r2=%.3f mode=%s proR1=%.3f proR1L2=%.3f latchMs=%u "
+        "r2ChargeMs=%u r2StartDist=%u r2KeepDist=%u "
+        "debugTouch=%u debugBw=%u debugCharge=%u debugActor=%u "
+        "debugL2=%u debugL2IntervalMs=%u l2Mask=0x%08X",
         g_config.overallBallWeight,
         g_config.ballWeightState1,
         g_config.normalDribbleBallWeight,
         g_config.r1BallWeight,
         g_config.r2BallWeight,
         g_config.r1R2BallWeight,
+        ConductionModeToString(g_config.conductionMode),
+        g_config.proR1BallWeight,
+        g_config.proR1L2BallWeight,
         static_cast<unsigned int>(g_config.protectedActionLatchMs),
         static_cast<unsigned int>(g_config.r2ChargeWindowMs),
         static_cast<unsigned int>(g_config.r2ChargeStartDistMax),
@@ -409,7 +603,10 @@ bool LoadGameplayPhysicsConfig(HMODULE moduleHandle)
         static_cast<unsigned int>(g_config.debugTouchDbg),
         static_cast<unsigned int>(g_config.debugBwDec),
         static_cast<unsigned int>(g_config.debugChargeDbg),
-        static_cast<unsigned int>(g_config.debugActorDebugLogger));
+        static_cast<unsigned int>(g_config.debugActorDebugLogger),
+        static_cast<unsigned int>(g_config.debugL2Input),
+        static_cast<unsigned int>(g_config.debugL2InputIntervalMs),
+        static_cast<unsigned int>(g_config.l2Mask));
 
     return true;
 }
@@ -447,6 +644,26 @@ float GetBallWeightR2()
 float GetBallWeightR1R2()
 {
     return g_config.r1R2BallWeight;
+}
+
+ConductionMode GetConductionMode()
+{
+    return g_config.conductionMode;
+}
+
+const char* GetConductionModeName()
+{
+    return ConductionModeToString(g_config.conductionMode);
+}
+
+float GetProBallWeightR1()
+{
+    return g_config.proR1BallWeight;
+}
+
+float GetProBallWeightR1L2()
+{
+    return g_config.proR1L2BallWeight;
 }
 
 uint32_t GetProtectedActionLatchMs()
@@ -492,4 +709,19 @@ uint32_t GetDebugChargeDbg()
 uint32_t GetDebugActorDebugLogger()
 {
     return g_config.debugActorDebugLogger;
+}
+
+uint32_t GetDebugL2Input()
+{
+    return g_config.debugL2Input;
+}
+
+uint32_t GetDebugL2InputIntervalMs()
+{
+    return g_config.debugL2InputIntervalMs;
+}
+
+uint32_t GetL2Mask()
+{
+    return g_config.l2Mask;
 }

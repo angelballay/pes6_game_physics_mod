@@ -40,6 +40,32 @@ namespace
     uint32_t g_r2ChargeFromDir = 0;
     uint32_t g_r2ChargeToDir = 0;
 
+    // Estado exclusivo de ProBoost. No se comparte con BoostMode clasico.
+    uint32_t g_proLastTechDir = 0;
+    uintptr_t g_proLastTechPlayer = 0;
+
+    uint32_t g_proPrevTechDir = 0;
+    ULONGLONG g_proPrevTechDirTick = 0;
+
+    bool g_proPrevR2Held = false;
+    bool g_proChargeConsumedForHold = false;
+
+    ULONGLONG g_proChargeUntilMs = 0;
+    uintptr_t g_proChargePlayer = 0;
+    uint32_t g_proChargeFromDir = 0;
+    uint32_t g_proChargeToDir = 0;
+
+    // Armado ProBoost: evita que L2 primero + R1 active 305.
+    bool g_proR1OnlyArmed = false;
+    uintptr_t g_proR1OnlyPlayer = 0;
+    ULONGLONG g_proR1OnlyTick = 0;
+
+    constexpr uint32_t INPUT_DIR_MASK = 0x000000F0;
+    constexpr uint32_t R1_MASK = 0x01000800;
+    constexpr uint32_t R2_MASK = 0x02000200;
+    constexpr uint32_t CROSS_MASK = 0x00122000;
+    constexpr uint32_t SHOT_MASK = 0x00488000;
+
     static DWORD FloatToBits(float value)
     {
         DWORD bits = 0;
@@ -233,6 +259,21 @@ namespace
         return false;
     }
 
+    static bool IsConfiguredL2MaskHeld(uintptr_t player)
+    {
+        if (!LooksLikeValidPlayer(player))
+            return false;
+
+        const uint32_t l2Mask = GetL2Mask();
+
+        if (l2Mask == 0)
+            return false;
+
+        const uint32_t b0 = ReadOr<uint32_t>(player + 0xB0, 0);
+
+        return (b0 & l2Mask) == l2Mask;
+    }
+
     static bool IsInternalR2Control(uintptr_t player)
     {
         if (!LooksLikeValidPlayer(player))
@@ -264,7 +305,7 @@ namespace
     {
         const ULONGLONG now = GetTickCount64();
 
-        // En conducción recta puede haber menos refresh de actor que en giros/toques.
+        // En conducciï¿½n recta puede haber menos refresh de actor que en giros/toques.
         constexpr ULONGLONG ACTOR_MAX_AGE_MS = 3500;
 
         const ULONGLONG actorTick = GetBallActorTick();
@@ -277,7 +318,7 @@ namespace
             return actorPlayer;
         }
 
-        // Fallback desde el último hook/contacto real de pelota.
+        // Fallback desde el ï¿½ltimo hook/contacto real de pelota.
         BallTouchDebugSnapshot touch = {};
         if (GetLastTouchDebugSnapshot(&touch) &&
             touch.tick != 0 &&
@@ -544,8 +585,8 @@ namespace
         bool validDir =
             IsValidR2LongTouchDirectionChange(fromDir, curDir);
 
-        // Si el polling ya pisó lastR1OnlyDir con la nueva dirección,
-        // probamos la dirección inmediatamente anterior.
+        // Si el polling ya pisï¿½ lastR1OnlyDir con la nueva direcciï¿½n,
+        // probamos la direcciï¿½n inmediatamente anterior.
         if (!validDir &&
             samePlayer &&
             g_prevR1OnlyDir != 0 &&
@@ -692,6 +733,308 @@ namespace
         return false;
     }
 
+
+    static void ResetProBoostState()
+    {
+        g_proLastTechDir = 0;
+        g_proLastTechPlayer = 0;
+
+        g_proPrevTechDir = 0;
+        g_proPrevTechDirTick = 0;
+
+        g_proPrevR2Held = false;
+        g_proChargeConsumedForHold = false;
+
+        g_proChargeUntilMs = 0;
+        g_proChargePlayer = 0;
+        g_proChargeFromDir = 0;
+        g_proChargeToDir = 0;
+
+        g_proR1OnlyArmed = false;
+        g_proR1OnlyPlayer = 0;
+        g_proR1OnlyTick = 0;
+    }
+
+    static bool UpdateProBoostTechnicalSprintHeld(bool r1Held, bool l2Held, uintptr_t player)
+    {
+        const ULONGLONG now = GetTickCount64();
+
+        if (!LooksLikeValidPlayer(player) || !r1Held)
+        {
+            ResetProBoostState();
+            return false;
+        }
+
+        const uint32_t curDir = GetPlayerDirBits(player);
+
+        // R1 sin L2 arma ProBoost. Esto preserva la intencion:
+        // primero correr con R1, despues sumar L2.
+        if (!l2Held)
+        {
+            g_proR1OnlyArmed = true;
+            g_proR1OnlyPlayer = player;
+            g_proR1OnlyTick = now;
+
+            // Al soltar L2 pero mantener R1, no debe quedar charge activo.
+            g_proChargeUntilMs = 0;
+            g_proChargePlayer = 0;
+            g_proChargeFromDir = 0;
+            g_proChargeToDir = 0;
+            g_proChargeConsumedForHold = false;
+            g_proPrevR2Held = false;
+
+            return false;
+        }
+
+        // L2 primero + R1 no arma 305. Exigimos haber visto R1 solo antes.
+        if (!g_proR1OnlyArmed || g_proR1OnlyPlayer != player)
+            return false;
+
+        // Ventana amplia: si el usuario venia corriendo con R1 y suma L2, debe tomarlo
+        // aun si el polling no capturo el tick exacto anterior.
+        if (now - g_proR1OnlyTick > 2500ULL)
+            return false;
+
+        // Debe haber direccion activa para evitar 305 en trote quieto/estado raro.
+        if (curDir == 0)
+            return false;
+
+        return true;
+    }
+
+    static void LogProBoostChargeDebug(
+        const char* reason,
+        uintptr_t player,
+        uint32_t b0,
+        uint32_t fromDir,
+        uint32_t toDir,
+        bool technicalHeld,
+        bool r2Held,
+        bool r2Edge,
+        bool validDir,
+        bool active,
+        uint32_t p114)
+    {
+        if (!GetDebugChargeDbg())
+            return;
+
+        static ULONGLONG s_lastLogTick = 0;
+        static uintptr_t s_lastPlayer = 0;
+        static uint32_t s_lastB0 = 0xFFFFFFFF;
+        static uint32_t s_lastFrom = 0xFFFFFFFF;
+        static uint32_t s_lastTo = 0xFFFFFFFF;
+        static bool s_lastActive = false;
+        static const char* s_lastReason = "";
+
+        const ULONGLONG now = GetTickCount64();
+
+        const bool changed =
+            s_lastPlayer != player ||
+            s_lastB0 != b0 ||
+            s_lastFrom != fromDir ||
+            s_lastTo != toDir ||
+            s_lastActive != active ||
+            s_lastReason != reason;
+
+        if (!changed && now - s_lastLogTick < 200ULL)
+            return;
+
+        s_lastLogTick = now;
+        s_lastPlayer = player;
+        s_lastB0 = b0;
+        s_lastFrom = fromDir;
+        s_lastTo = toDir;
+        s_lastActive = active;
+        s_lastReason = reason;
+
+        LogFormat(
+            "[PROCHARGEDBG] reason=%s player=0x%08X b0=0x%08X "
+            "from=0x%02X to=0x%02X tech=%u r2=%u edge=%u validDir=%u "
+            "active=%u p114=%u untilLeft=%d",
+            reason,
+            (unsigned int)player,
+            (unsigned int)b0,
+            (unsigned int)fromDir,
+            (unsigned int)toDir,
+            technicalHeld ? 1u : 0u,
+            r2Held ? 1u : 0u,
+            r2Edge ? 1u : 0u,
+            validDir ? 1u : 0u,
+            active ? 1u : 0u,
+            (unsigned int)p114,
+            g_proChargeUntilMs > now ? (int)(g_proChargeUntilMs - now) : 0);
+    }
+
+    static bool UpdateProBoostDirectionalCharge(bool technicalHeld, bool r2Held, uintptr_t player)
+    {
+        const ULONGLONG now = GetTickCount64();
+
+        if (!LooksLikeValidPlayer(player))
+        {
+            ResetProBoostState();
+            LogProBoostChargeDebug("RESET_NO_PLAYER", player, 0, 0, 0,
+                technicalHeld, r2Held, false, false, false, 0);
+            return false;
+        }
+
+        const uint32_t b0 = ReadOr<uint32_t>(player + 0xB0, 0);
+        const uint32_t curDir = GetPlayerDirBits(player);
+        const uint32_t p114 = GetPlayerBallDistanceRaw(player);
+        const bool r2Edge = r2Held && !g_proPrevR2Held;
+
+        if (!technicalHeld)
+        {
+            const uint32_t prevDir = g_proLastTechDir;
+
+            g_proLastTechDir = 0;
+            g_proLastTechPlayer = 0;
+            g_proPrevTechDir = 0;
+            g_proPrevTechDirTick = 0;
+            g_proPrevR2Held = r2Held;
+            g_proChargeConsumedForHold = false;
+            g_proChargeUntilMs = 0;
+            g_proChargePlayer = 0;
+            g_proChargeFromDir = 0;
+            g_proChargeToDir = 0;
+
+            LogProBoostChargeDebug("RESET_NO_TECH", player, b0, prevDir, curDir,
+                technicalHeld, r2Held, r2Edge, false, false, p114);
+            return false;
+        }
+
+        if (curDir == 0)
+        {
+            g_proPrevR2Held = r2Held;
+            g_proChargeUntilMs = 0;
+
+            LogProBoostChargeDebug("NO_DIR", player, b0, g_proLastTechDir, curDir,
+                technicalHeld, r2Held, r2Edge, false, false, p114);
+            return false;
+        }
+
+        // Estado base: R1+L2 sin R2. Guardamos direccion tecnica previa.
+        if (!r2Held)
+        {
+            if (curDir != 0)
+            {
+                if (g_proLastTechPlayer == player &&
+                    g_proLastTechDir != 0 &&
+                    g_proLastTechDir != curDir)
+                {
+                    g_proPrevTechDir = g_proLastTechDir;
+                    g_proPrevTechDirTick = now;
+                }
+
+                g_proLastTechDir = curDir;
+                g_proLastTechPlayer = player;
+            }
+
+            g_proPrevR2Held = false;
+            g_proChargeUntilMs = 0;
+            g_proChargePlayer = 0;
+            g_proChargeFromDir = 0;
+            g_proChargeToDir = 0;
+            g_proChargeConsumedForHold = false;
+
+            LogProBoostChargeDebug("TRACK_TECH_ONLY", player, b0, g_proLastTechDir, curDir,
+                technicalHeld, r2Held, false, false, false, p114);
+            return false;
+        }
+
+        const bool samePlayer =
+            g_proLastTechPlayer != 0 &&
+            g_proLastTechPlayer == player;
+
+        uint32_t fromDir = samePlayer ? g_proLastTechDir : 0;
+        bool validDir = IsValidR2LongTouchDirectionChange(fromDir, curDir);
+
+        if (!validDir &&
+            samePlayer &&
+            g_proPrevTechDir != 0 &&
+            now - g_proPrevTechDirTick <= 500ULL &&
+            IsValidR2LongTouchDirectionChange(g_proPrevTechDir, curDir))
+        {
+            fromDir = g_proPrevTechDir;
+            validDir = true;
+        }
+
+        bool active =
+            g_proChargePlayer == player &&
+            g_proChargeUntilMs != 0 &&
+            now <= g_proChargeUntilMs;
+
+        if (active)
+        {
+            if (p114 > GetR2ChargeKeepDistMax())
+            {
+                g_proChargeUntilMs = 0;
+                g_proChargePlayer = 0;
+                active = false;
+                g_proPrevR2Held = r2Held;
+
+                LogProBoostChargeDebug("STOP_TOO_FAR", player, b0, fromDir, curDir,
+                    technicalHeld, r2Held, r2Edge, validDir, false, p114);
+                return false;
+            }
+
+            g_proPrevR2Held = r2Held;
+
+            LogProBoostChargeDebug("ACTIVE", player, b0, g_proChargeFromDir, g_proChargeToDir,
+                technicalHeld, r2Held, r2Edge, validDir, true, p114);
+            return true;
+        }
+
+        if (g_proChargeConsumedForHold)
+        {
+            g_proPrevR2Held = r2Held;
+
+            LogProBoostChargeDebug("CONSUMED_WAIT_RELEASE", player, b0, fromDir, curDir,
+                technicalHeld, r2Held, r2Edge, validDir, false, p114);
+            return false;
+        }
+
+        if (validDir)
+        {
+            if (p114 <= GetR2ChargeStartDistMax())
+            {
+                g_proChargePlayer = player;
+                g_proChargeFromDir = fromDir;
+                g_proChargeToDir = curDir;
+                g_proChargeUntilMs = now + GetR2ChargeWindowMs();
+
+                g_proPrevR2Held = r2Held;
+                g_proChargeConsumedForHold = true;
+
+                LogProBoostChargeDebug("START", player, b0, fromDir, curDir,
+                    technicalHeld, r2Held, r2Edge, true, true, p114);
+                return true;
+            }
+
+            g_proPrevR2Held = r2Held;
+
+            LogProBoostChargeDebug("VALID_BUT_TOO_FAR", player, b0, fromDir, curDir,
+                technicalHeld, r2Held, r2Edge, true, false, p114);
+            return false;
+        }
+
+        g_proPrevR2Held = r2Held;
+
+        LogProBoostChargeDebug(
+            r2Edge ? "R2_EDGE_INVALID_DIR" : "R2_HELD_INVALID_DIR",
+            player,
+            b0,
+            fromDir,
+            curDir,
+            technicalHeld,
+            r2Held,
+            r2Edge,
+            false,
+            false,
+            p114);
+
+        return false;
+    }
+
     enum BallWeightDecisionReason
     {
         BW_REASON_STATE_PASS_OR_LOOSE = 1,
@@ -701,7 +1044,11 @@ namespace
         BW_REASON_R1 = 5,
         BW_REASON_R2 = 6,
         BW_REASON_NORMAL = 7,
-        BW_REASON_NO_PLAYER = 8
+        BW_REASON_NO_PLAYER = 8,
+        BW_REASON_DISABLED = 9,
+        BW_REASON_PRO_R1_VANILLA = 10,
+        BW_REASON_PRO_R1_L2 = 11,
+        BW_REASON_PRO_R1_L2_R2_CHARGE = 12
     };
 
     static const char* GetBwReasonName(BallWeightDecisionReason reason)
@@ -716,8 +1063,255 @@ namespace
         case BW_REASON_R2:                  return "R2";
         case BW_REASON_NORMAL:              return "NORMAL";
         case BW_REASON_NO_PLAYER:           return "NO_PLAYER";
+        case BW_REASON_DISABLED:            return "DISABLED";
+        case BW_REASON_PRO_R1_VANILLA:      return "PRO_R1_VANILLA";
+        case BW_REASON_PRO_R1_L2:           return "PRO_R1_L2";
+        case BW_REASON_PRO_R1_L2_R2_CHARGE: return "PRO_R1_L2_R2_CHARGE";
         default:                            return "UNKNOWN";
         }
+    }
+
+    static void LogL2InputSnapshotIfNeeded(
+        DWORD ballState,
+        uintptr_t player,
+        bool protectedAction,
+        bool internalR1,
+        bool internalR2,
+        bool r1Held,
+        bool r2Held,
+        bool r2ChargeActive,
+        float target,
+        BallWeightDecisionReason reason)
+    {
+        if (!GetDebugL2Input())
+            return;
+
+        const ULONGLONG now = GetTickCount64();
+        const uint32_t intervalMs = GetDebugL2InputIntervalMs();
+
+        uint32_t ball50 = 0;
+        uint32_t ball88 = 0;
+
+        if (g_pesBase)
+        {
+            const uintptr_t ballBase =
+                ReadOr<uintptr_t>(g_pesBase + PesAddresses::BALL_GLOBAL_PTR, 0);
+
+            if (ballBase)
+            {
+                ball50 = ReadOr<uint32_t>(ballBase + PesOffsets::BALL_POWER, 0);
+                ball88 = ReadOr<uint32_t>(ballBase + 0x88, 0);
+            }
+        }
+
+        const uint32_t configuredL2Mask = GetL2Mask();
+
+        const bool hasValidPlayer = LooksLikeValidPlayer(player);
+
+        uint8_t playerId = 0xFF;
+        uint32_t b0 = 0;
+        uint32_t dirBits = 0;
+        uint32_t modeBits = 0;
+        uint32_t extraBits = 0;
+        bool configuredL2Held = false;
+
+        uint8_t p16 = 0;
+        uint16_t p18 = 0;
+        uint8_t p4D = 0;
+        uint8_t p4F = 0;
+        uint32_t p114 = 0;
+        uint16_t anim30 = 0;
+
+        if (hasValidPlayer)
+        {
+            playerId = ReadOr<uint8_t>(player + 0x00, 0xFF);
+
+            b0 = ReadOr<uint32_t>(player + 0xB0, 0);
+
+            dirBits = b0 & INPUT_DIR_MASK;
+            modeBits = b0 & ~INPUT_DIR_MASK;
+
+            extraBits =
+                modeBits
+                & ~R1_MASK
+                & ~R2_MASK
+                & ~CROSS_MASK
+                & ~SHOT_MASK;
+
+            configuredL2Held = IsConfiguredL2MaskHeld(player);
+
+            p16 = ReadOr<uint8_t>(player + 0x16, 0);
+            p18 = ReadOr<uint16_t>(player + 0x18, 0);
+            p4D = ReadOr<uint8_t>(player + 0x4D, 0);
+            p4F = ReadOr<uint8_t>(player + 0x4F, 0);
+            p114 = ReadOr<uint32_t>(player + 0x114, 0);
+            anim30 = GetAnim30(player);
+        }
+
+        BallTouchDebugSnapshot touch = {};
+        const bool hasTouch = GetLastTouchDebugSnapshot(&touch);
+
+        const ULONGLONG touchAge =
+            hasTouch && touch.tick != 0
+            ? now - touch.tick
+            : 999999;
+
+        const bool recentTouch =
+            hasTouch &&
+            touch.tick != 0 &&
+            touchAge <= 500;
+
+        uint32_t touchModeBits = 0;
+        uint32_t touchExtraBits = 0;
+        bool touchConfiguredL2Held = false;
+
+        if (recentTouch)
+        {
+            touchModeBits = touch.b0 & ~INPUT_DIR_MASK;
+
+            touchExtraBits =
+                touchModeBits
+                & ~R1_MASK
+                & ~R2_MASK
+                & ~CROSS_MASK
+                & ~SHOT_MASK;
+
+            touchConfiguredL2Held =
+                configuredL2Mask != 0 &&
+                (touch.b0 & configuredL2Mask) == configuredL2Mask;
+        }
+
+        // Evita spam: [L2DBG] solo escribe cuando hay input relevante para esta investigacion.
+        // No loguea loops vacios tipo player=0, NORMAL/NO_PLAYER, sin B0 util y sin touch reciente.
+        const bool playerInputUseful =
+            hasValidPlayer &&
+            b0 != 0 &&
+            (r1Held ||
+             r2Held ||
+             internalR1 ||
+             internalR2 ||
+             configuredL2Held ||
+             extraBits != 0 ||
+             protectedAction ||
+             r2ChargeActive);
+
+        const bool touchInputUseful =
+            recentTouch &&
+            touch.b0 != 0 &&
+            (touch.r1 ||
+             touch.r2 ||
+             touchConfiguredL2Held ||
+             touchExtraBits != 0);
+
+        const bool useful =
+            playerInputUseful ||
+            touchInputUseful;
+
+        if (!useful)
+            return;
+
+        const int targetInt = static_cast<int>(target + 0.5f);
+
+        static ULONGLONG s_lastLogTick = 0;
+        static uintptr_t s_lastPlayer = 0;
+        static uint32_t s_lastB0 = 0xFFFFFFFF;
+        static uint32_t s_lastExtraBits = 0xFFFFFFFF;
+        static uint32_t s_lastTouchB0 = 0xFFFFFFFF;
+        static uint32_t s_lastTouchExtraBits = 0xFFFFFFFF;
+        static uint32_t s_lastBallState = 0xFFFFFFFF;
+        static int s_lastReason = -1;
+        static int s_lastTargetInt = -1;
+        static bool s_lastConfiguredL2Held = false;
+        static bool s_lastTouchConfiguredL2Held = false;
+        static bool s_lastR1Held = false;
+        static bool s_lastR2Held = false;
+        static bool s_lastCharge = false;
+        static bool s_lastProtected = false;
+
+        const bool changed =
+            s_lastPlayer != player ||
+            s_lastB0 != b0 ||
+            s_lastExtraBits != extraBits ||
+            s_lastTouchB0 != touch.b0 ||
+            s_lastTouchExtraBits != touchExtraBits ||
+            s_lastBallState != ballState ||
+            s_lastReason != static_cast<int>(reason) ||
+            s_lastTargetInt != targetInt ||
+            s_lastConfiguredL2Held != configuredL2Held ||
+            s_lastTouchConfiguredL2Held != touchConfiguredL2Held ||
+            s_lastR1Held != r1Held ||
+            s_lastR2Held != r2Held ||
+            s_lastCharge != r2ChargeActive ||
+            s_lastProtected != protectedAction;
+
+        // Heartbeat solo para input util sostenido. Evita llenar disco si el estado no cambia.
+        const bool heartbeat =
+            intervalMs != 0 &&
+            now - s_lastLogTick >= intervalMs;
+
+        if (!changed && !heartbeat)
+            return;
+
+        s_lastLogTick = now;
+        s_lastPlayer = player;
+        s_lastB0 = b0;
+        s_lastExtraBits = extraBits;
+        s_lastTouchB0 = touch.b0;
+        s_lastTouchExtraBits = touchExtraBits;
+        s_lastBallState = ballState;
+        s_lastReason = static_cast<int>(reason);
+        s_lastTargetInt = targetInt;
+        s_lastConfiguredL2Held = configuredL2Held;
+        s_lastTouchConfiguredL2Held = touchConfiguredL2Held;
+        s_lastR1Held = r1Held;
+        s_lastR2Held = r2Held;
+        s_lastCharge = r2ChargeActive;
+        s_lastProtected = protectedAction;
+
+        LogFormat(
+            "[L2DBG] state=%u ball50=%u ball88=%u player=0x%08X id=%u "
+            "b0=0x%08X dir=0x%02X mode=0x%08X extra=0x%08X "
+            "r1=%u r2=%u cfgL2=%u l2Mask=0x%08X "
+            "p16=%u p18=%u p4D=%u p4F=%u p114=%u anim30=0x%04X "
+            "protected=%u charge=%u target=%.1f reason=%s "
+            "touch=%u touchAge=%llu touchPlayer=0x%08X touchB0=0x%08X "
+            "touchDir=0x%02X touchMode=0x%08X touchExtra=0x%08X touchCfgL2=%u "
+            "touchR1=%u touchR2=%u touchP114=%u touchAnim30=0x%04X",
+            (unsigned int)ballState,
+            (unsigned int)ball50,
+            (unsigned int)ball88,
+            (unsigned int)player,
+            (unsigned int)playerId,
+            (unsigned int)b0,
+            (unsigned int)dirBits,
+            (unsigned int)modeBits,
+            (unsigned int)extraBits,
+            r1Held ? 1u : 0u,
+            r2Held ? 1u : 0u,
+            configuredL2Held ? 1u : 0u,
+            (unsigned int)configuredL2Mask,
+            (unsigned int)p16,
+            (unsigned int)p18,
+            (unsigned int)p4D,
+            (unsigned int)p4F,
+            (unsigned int)p114,
+            (unsigned int)anim30,
+            protectedAction ? 1u : 0u,
+            r2ChargeActive ? 1u : 0u,
+            target,
+            GetBwReasonName(reason),
+            hasTouch ? 1u : 0u,
+            (unsigned long long)touchAge,
+            hasTouch ? (unsigned int)touch.player : 0u,
+            hasTouch ? (unsigned int)touch.b0 : 0u,
+            hasTouch ? (unsigned int)touch.dirBits : 0u,
+            (unsigned int)touchModeBits,
+            (unsigned int)touchExtraBits,
+            touchConfiguredL2Held ? 1u : 0u,
+            hasTouch && touch.r1 ? 1u : 0u,
+            hasTouch && touch.r2 ? 1u : 0u,
+            hasTouch ? (unsigned int)touch.p114 : 0u,
+            hasTouch ? (unsigned int)touch.anim30 : 0u);
     }
 
     static void LogBallWeightDecisionIfNeeded(
@@ -883,11 +1477,24 @@ namespace
         if (ballState == BALL_STATE_PASS_OR_LOOSE)
         {
             ResetR2DirectionalCharge();
+            ResetProBoostState();
 
             target = GetBallWeightState1();
             reason = BW_REASON_STATE_PASS_OR_LOOSE;
 
             LogBallWeightDecisionIfNeeded(
+                ballState,
+                player,
+                protectedAction,
+                internalR1,
+                internalR2,
+                r1Held,
+                r2Held,
+                r2ChargeActive,
+                target,
+                reason);
+
+            LogL2InputSnapshotIfNeeded(
                 ballState,
                 player,
                 protectedAction,
@@ -905,11 +1512,24 @@ namespace
         if (ballState != BALL_STATE_POSSESSION)
         {
             ResetR2DirectionalCharge();
+            ResetProBoostState();
 
             target = overall;
             reason = BW_REASON_NOT_POSSESSION;
 
             LogBallWeightDecisionIfNeeded(
+                ballState,
+                player,
+                protectedAction,
+                internalR1,
+                internalR2,
+                r1Held,
+                r2Held,
+                r2ChargeActive,
+                target,
+                reason);
+
+            LogL2InputSnapshotIfNeeded(
                 ballState,
                 player,
                 protectedAction,
@@ -932,11 +1552,24 @@ namespace
         if (protectedAction)
         {
             ResetR2DirectionalCharge();
+            ResetProBoostState();
 
             target = overall;
             reason = BW_REASON_PROTECTED;
 
             LogBallWeightDecisionIfNeeded(
+                ballState,
+                player,
+                protectedAction,
+                internalR1,
+                internalR2,
+                r1Held,
+                r2Held,
+                r2ChargeActive,
+                target,
+                reason);
+
+            LogL2InputSnapshotIfNeeded(
                 ballState,
                 player,
                 protectedAction,
@@ -957,36 +1590,107 @@ namespace
         r1Held = internalR1;
         r2Held = internalR2;
 
-        r2ChargeActive =
-            UpdateR2DirectionalCharge(r1Held, r2Held, player);
+        const ConductionMode mode = GetConductionMode();
 
-        if (!LooksLikeValidPlayer(player))
+        if (mode == ConductionMode::Disabled)
         {
-            target = GetBallWeightNormalDribble();
-            reason = BW_REASON_NO_PLAYER;
+            ResetR2DirectionalCharge();
+            ResetProBoostState();
+
+            target = overall;
+            reason = BW_REASON_DISABLED;
         }
-        else if (r1Held && r2Held && r2ChargeActive)
+        else if (mode == ConductionMode::Boost)
         {
-            target = GetBallWeightR1R2();
-            reason = BW_REASON_R1_R2_CHARGE;
+            // Ruta original estable. No tocar: mantiene BoostMode v1.
+            ResetProBoostState();
+
+            r2ChargeActive =
+                UpdateR2DirectionalCharge(r1Held, r2Held, player);
+
+            if (!LooksLikeValidPlayer(player))
+            {
+                target = GetBallWeightNormalDribble();
+                reason = BW_REASON_NO_PLAYER;
+            }
+            else if (r1Held && r2Held && r2ChargeActive)
+            {
+                target = GetBallWeightR1R2();
+                reason = BW_REASON_R1_R2_CHARGE;
+            }
+            else if (r1Held)
+            {
+                target = GetBallWeightR1();
+                reason = BW_REASON_R1;
+            }
+            else if (r2Held)
+            {
+                target = GetBallWeightR2();
+                reason = BW_REASON_R2;
+            }
+            else
+            {
+                target = GetBallWeightNormalDribble();
+                reason = BW_REASON_NORMAL;
+            }
         }
-        else if (r1Held)
+        else // ConductionMode::ProBoost
         {
-            target = GetBallWeightR1();
-            reason = BW_REASON_R1;
-        }
-        else if (r2Held)
-        {
-            target = GetBallWeightR2();
-            reason = BW_REASON_R2;
-        }
-        else
-        {
-            target = GetBallWeightNormalDribble();
-            reason = BW_REASON_NORMAL;
+            // ProBoost usa estado propio. No comparte el charge ni prioridades de BoostMode.
+            ResetR2DirectionalCharge();
+
+            const bool l2Held = IsConfiguredL2MaskHeld(player);
+            const bool technicalHeld =
+                UpdateProBoostTechnicalSprintHeld(r1Held, l2Held, player);
+
+            r2ChargeActive =
+                UpdateProBoostDirectionalCharge(technicalHeld, r2Held, player);
+
+            if (!LooksLikeValidPlayer(player))
+            {
+                target = GetBallWeightNormalDribble();
+                reason = BW_REASON_NO_PLAYER;
+            }
+            else if (technicalHeld && r2Held && r2ChargeActive)
+            {
+                target = GetBallWeightR1R2();
+                reason = BW_REASON_PRO_R1_L2_R2_CHARGE;
+            }
+            else if (technicalHeld)
+            {
+                target = GetProBallWeightR1L2();
+                reason = BW_REASON_PRO_R1_L2;
+            }
+            else if (r1Held)
+            {
+                target = GetProBallWeightR1();
+                reason = BW_REASON_PRO_R1_VANILLA;
+            }
+            else if (r2Held)
+            {
+                target = GetBallWeightR2();
+                reason = BW_REASON_R2;
+            }
+            else
+            {
+                target = GetBallWeightNormalDribble();
+                reason = BW_REASON_NORMAL;
+            }
         }
 
         LogBallWeightDecisionIfNeeded(
+            ballState,
+            player,
+            protectedAction,
+            internalR1,
+            internalR2,
+            r1Held,
+            r2Held,
+            r2ChargeActive,
+            target,
+            reason);
+
+        LogL2InputSnapshotIfNeeded(
             ballState,
             player,
             protectedAction,
@@ -1034,6 +1738,7 @@ bool StartBallWeightController(uintptr_t pesBase)
     g_pesBase = pesBase;
     g_lastAppliedBits = 0;
     ResetR2DirectionalCharge();
+    ResetProBoostState();
 
     g_thread = CreateThread(
         nullptr,
