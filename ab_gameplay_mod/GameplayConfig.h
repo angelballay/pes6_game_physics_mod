@@ -24,6 +24,11 @@ struct GameplayPhysicsConfig
     // para que los predictores visuales no queden contaminados por peso de conduccion.
     uint32_t protectedActionLatchMs;
 
+    // R1 + R2 + cambio direccional: tirarla larga / carga inteligente.
+    uint32_t r2ChargeWindowMs;
+    uint32_t r2ChargeStartDistMax;
+    uint32_t r2ChargeKeepDistMax;
+
     // Compatibilidad historica. Deprecated: antes era el peso unico de posesion.
     float possessionBallWeight;
 };
@@ -38,6 +43,10 @@ float GetBallWeightR1();
 float GetBallWeightR2();
 float GetBallWeightR1R2();
 uint32_t GetProtectedActionLatchMs();
+
+uint32_t GetR2ChargeWindowMs();
+uint32_t GetR2ChargeStartDistMax();
+uint32_t GetR2ChargeKeepDistMax();
 
 // Deprecated, conservado para compatibilidad con codigo viejo.
 float GetPossessionBallWeight();

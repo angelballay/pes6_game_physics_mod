@@ -84,25 +84,25 @@ namespace
         const bool hasCrossMask = (b0 & CROSS_MASK) == CROSS_MASK;
         const bool hasShotMask = (b0 & SHOT_MASK) == SHOT_MASK;
 
-        // Firmas ya conocidas:
-        // - Centro D / accion aerea: B0 0x00122000
-        // - Tiro A: B0 0x00488000
-        // - Acciones de golpeo: p4D 16 / 24
         const bool knownKick =
             p4D == 16 ||
             p4D == 24 ||
             hasCrossMask ||
             hasShotMask;
 
-        // Centro D desde derecha/banda.
-        const bool rightSideCrossVariant =
-            p4F == 6 &&
-            anim30 == 0x0226;
-
-        // Centro D en estado de pelota quieta/control detenido.
-        const bool possessionCrossVariant =
-            p16 == 32 &&
-            anim30 == 0x00EB;
+        // Centro D / centro corriendo. Importante:
+        // en algunas fases b0 pierde CROSS_MASK, pero p16=9 + anim30 sigue marcando centro.
+        const bool crossByP16 =
+            p16 == 9 &&
+            (
+                anim30 == 0x0011 ||
+                anim30 == 0x0018 ||
+                anim30 == 0x0224 ||
+                anim30 == 0x0226 ||
+                anim30 == 0x0227 ||
+                anim30 == 0x00EC ||
+                anim30 == 0x00EB
+                );
 
         // Q + W / pase alto especial.
         const bool lobPassQW =
@@ -112,10 +112,16 @@ namespace
             p4F >= 20 &&
             p4F <= 60;
 
-        return knownKick ||
-               rightSideCrossVariant ||
-               possessionCrossVariant ||
-               lobPassQW;
+        // Variante vieja que ya habíamos visto.
+        const bool possessionCrossVariant =
+            p16 == 32 &&
+            anim30 == 0x00EB;
+
+        return
+            knownKick ||
+            crossByP16 ||
+            possessionCrossVariant ||
+            lobPassQW;
     }
 
     bool IsGoalkeeperKickPreparing(uintptr_t player, DWORD ballState)
@@ -124,16 +130,8 @@ namespace
             return false;
 
         const uint8_t p16 = ReadOr<uint8_t>(player + 0x16, 0);
-        const uint8_t p4F = ReadOr<uint8_t>(player + 0x4F, 0);
-        const uint32_t b0 = ReadOr<uint32_t>(player + 0xB0, 0);
         const uint16_t anim30 = GetAnim30(player);
 
-        const bool hasCrossMask = (b0 & CROSS_MASK) == CROSS_MASK;
-
-        // Saques de arquero observados:
-        // - p16 129 / 130 / 148 / 149 durante preparacion.
-        // - anim30 0x0158 / 0x0275 / 0x0391 / 0x03E7.
-        // - p4F 46 / 24 / 1 puede aparecer segun fase/contexto.
         const bool keeperP16 =
             p16 == 129 ||
             p16 == 130 ||
@@ -146,15 +144,7 @@ namespace
             anim30 == 0x0391 ||
             anim30 == 0x03E7;
 
-        const bool keeperP4F =
-            p4F == 46 ||
-            p4F == 24 ||
-            p4F == 1;
-
-        return keeperP16 ||
-               keeperAnim ||
-               hasCrossMask ||
-               keeperP4F;
+        return keeperP16 || keeperAnim;
     }
 }
 

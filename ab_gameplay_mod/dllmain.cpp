@@ -119,14 +119,14 @@ static DWORD WINAPI MainThread(LPVOID param)
         LogFormat("[WARN] BallActorTracker no se pudo activar.");
     }
 
-    if (InstallActorDebugLogger(g_base))
-    {
-        LogFormat("[OK] ActorDebugLogger activo.");
-    }
-    else
-    {
-        LogFormat("[WARN] ActorDebugLogger no se pudo activar.");
-    }
+    //if (InstallActorDebugLogger(g_base))
+    //{
+    //    LogFormat("[OK] ActorDebugLogger activo.");
+    //}
+    //else
+    //{
+    //    LogFormat("[WARN] ActorDebugLogger no se pudo activar.");
+    //}
 
 
     if (!InstallContextHook(g_base))

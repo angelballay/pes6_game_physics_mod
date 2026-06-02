@@ -33,6 +33,16 @@ namespace
     constexpr uintptr_t RET_07810D_OFFSET  = 0x00078113;
     constexpr size_t    SIZE_07810D        = 6;
 
+    constexpr uintptr_t BALL_GLOBAL_PTR_OFFSET = 0x007CCE94;
+
+    constexpr uint32_t R1_MASK = 0x01000800;
+    constexpr uint32_t R2_MASK = 0x02000200;
+    constexpr uint32_t CROSS_MASK = 0x00122000;
+    constexpr uint32_t SHOT_MASK = 0x00488000;
+
+    volatile LONG g_touchDbgCount = 0;
+    ULONGLONG g_lastTouchDbgTick = 0;
+
     enum HookSource : uint32_t
     {
         SRC_1ADEC9_DL = 1,
@@ -58,9 +68,25 @@ namespace
     uint8_t g_ballActorId = 0xFF;
     ULONGLONG g_ballActorTick = 0;
 
+    BallTouchDebugSnapshot g_lastTouchSnapshot = {};
+    bool g_hasLastTouchSnapshot = false;
+
     // ---------------------------------------------------------------------
     // Safe reads
     // ---------------------------------------------------------------------
+    void StoreTouchDebugSnapshot(const BallTouchDebugSnapshot& snap)
+    {
+        if (g_actorCsInitialized)
+            EnterCriticalSection(&g_actorCs);
+
+        g_lastTouchSnapshot = snap;
+        g_hasLastTouchSnapshot = true;
+
+        if (g_actorCsInitialized)
+            LeaveCriticalSection(&g_actorCs);
+    }
+
+
 
     template <typename T>
     bool SafeRead(uintptr_t address, T& out)
@@ -111,6 +137,159 @@ namespace
         return true;
     }
 
+
+    uint16_t GetAnim30(uintptr_t player)
+    {
+        const uintptr_t animPtr = ReadPtr(player + 0x04, 0);
+
+        if (!animPtr)
+            return 0;
+
+        return ReadOr<uint16_t>(animPtr + 0x30, 0);
+    }
+
+    uint32_t ReadBallU32(uintptr_t offset, uint32_t fallback = 0)
+    {
+        if (!g_pesBase)
+            return fallback;
+
+        const uintptr_t ball =
+            ReadPtr(g_pesBase + BALL_GLOBAL_PTR_OFFSET, 0);
+
+        if (!ball)
+            return fallback;
+
+        return ReadOr<uint32_t>(ball + offset, fallback);
+    }
+
+    void LogTouchDebugIfNeeded(
+        uint32_t source,
+        uintptr_t player,
+        uintptr_t eax,
+        uintptr_t ebx,
+        uintptr_t ecx,
+        uintptr_t edx,
+        uintptr_t esi,
+        uintptr_t edi,
+        uintptr_t ebp,
+        uintptr_t stack00,
+        uintptr_t stack24,
+        uintptr_t stack2C,
+        uintptr_t stack38)
+    {
+        if (!LooksLikeValidPlayer(player))
+            return;
+
+        const uint32_t ball84 = ReadBallU32(0x84, 0xFFFFFFFF);
+        const uint32_t ball50 = ReadBallU32(0x50, 0);
+        const uint32_t ball88 = ReadBallU32(0x88, 0);
+
+        // De momento investigamos conducción/control.
+        if (ball84 != 0)
+            return;
+
+        const ULONGLONG now = GetTickCount64();
+
+        // Evita destruir rendimiento/escribir miles de líneas.
+        // 25 ms captura bastante sin congelar el juego.
+        if (now - g_lastTouchDbgTick < 25)
+            return;
+
+        g_lastTouchDbgTick = now;
+
+        const LONG count = InterlockedIncrement(&g_touchDbgCount);
+
+        // Límite de seguridad por sesión. Si necesitás más, subilo.
+        if (count > 2000)
+            return;
+
+        const uint32_t b0 = ReadOr<uint32_t>(player + 0xB0, 0);
+        const uint32_t dirBits = b0 & 0xF0;
+
+        const bool r1 = (b0 & R1_MASK) == R1_MASK;
+        const bool r2 = (b0 & R2_MASK) == R2_MASK;
+        const bool cross = (b0 & CROSS_MASK) == CROSS_MASK;
+        const bool shot = (b0 & SHOT_MASK) == SHOT_MASK;
+
+        const uint8_t id = ReadU8(player + 0x00, 0xFF);
+        const uint8_t p16 = ReadU8(player + 0x16, 0);
+        const uint16_t p18 = ReadOr<uint16_t>(player + 0x18, 0);
+        const uint8_t p24 = ReadU8(player + 0x24, 0);
+        const uint8_t p26 = ReadU8(player + 0x26, 0);
+        const uint8_t p28 = ReadU8(player + 0x28, 0);
+        const uint8_t p2C = ReadU8(player + 0x2C, 0);
+        const uint8_t p4D = ReadU8(player + 0x4D, 0);
+        const uint8_t p4F = ReadU8(player + 0x4F, 0);
+        const uint32_t p114 = ReadOr<uint32_t>(player + 0x114, 0);
+        const uint16_t anim30 = GetAnim30(player);
+
+        BallTouchDebugSnapshot snap = {};
+        snap.player = player;
+        snap.source = source;
+        snap.b0 = b0;
+        snap.dirBits = dirBits;
+        snap.ball50 = ball50;
+        snap.ball84 = ball84;
+        snap.ball88 = ball88;
+        snap.p16 = p16;
+        snap.p18 = p18;
+        snap.p4D = p4D;
+        snap.p4F = p4F;
+        snap.anim30 = anim30;
+        snap.p114 = p114;
+        snap.r1 = r1;
+        snap.r2 = r2;
+        snap.cross = cross;
+        snap.shot = shot;
+        snap.tick = now;
+
+        StoreTouchDebugSnapshot(snap);
+
+        LogFormat(
+            "[TOUCHDBG] n=%ld src=%u player=0x%08X id=%u "
+            "b0=0x%08X dir=0x%02X r1=%u r2=%u cross=%u shot=%u "
+            "ball50=%u ball84=%u ball88=%u "
+            "esi=0x%08X(%u) edi=0x%08X ebp=0x%08X "
+            "eax=0x%08X ebx=0x%08X ecx=0x%08X edx=0x%08X "
+            "p16=%u p18=%u p24=%u p26=%u p28=%u p2C=%u p4D=%u p4F=%u p114=%u anim30=0x%04X "
+            "st00=0x%08X st24=0x%08X st2C=0x%08X st38=0x%08X",
+            count,
+            (unsigned int)source,
+            (unsigned int)player,
+            (unsigned int)id,
+            (unsigned int)b0,
+            (unsigned int)dirBits,
+            r1 ? 1u : 0u,
+            r2 ? 1u : 0u,
+            cross ? 1u : 0u,
+            shot ? 1u : 0u,
+            (unsigned int)ball50,
+            (unsigned int)ball84,
+            (unsigned int)ball88,
+            (unsigned int)esi,
+            (unsigned int)esi,
+            (unsigned int)edi,
+            (unsigned int)ebp,
+            (unsigned int)eax,
+            (unsigned int)ebx,
+            (unsigned int)ecx,
+            (unsigned int)edx,
+            (unsigned int)p16,
+            (unsigned int)p18,
+            (unsigned int)p24,
+            (unsigned int)p26,
+            (unsigned int)p28,
+            (unsigned int)p2C,
+            (unsigned int)p4D,
+            (unsigned int)p4F,
+            (unsigned int)p114,
+            (unsigned int)anim30,
+            (unsigned int)stack00,
+            (unsigned int)stack24,
+            (unsigned int)stack2C,
+            (unsigned int)stack38
+        );
+    }
     bool RegisterLooksLikeActor(uintptr_t candidate, uint8_t actorRegId, uint8_t gActorBefore)
     {
         if (!LooksLikeValidPlayer(candidate))
@@ -202,6 +381,7 @@ namespace
             LeaveCriticalSection(&g_actorCs);
     }
 
+   
     // ---------------------------------------------------------------------
     // Hook patching
     // ---------------------------------------------------------------------
@@ -232,8 +412,7 @@ namespace
         return true;
     }
 
-    extern "C" __declspec(noinline)
-    void __stdcall BallActorTracker_OnActorWrite(
+    extern "C" __declspec(noinline) void __stdcall BallActorTracker_OnActorWrite(
         uint32_t source,
         uint32_t actorRegIdValue,
         uintptr_t eax,
@@ -242,7 +421,11 @@ namespace
         uintptr_t edx,
         uintptr_t esi,
         uintptr_t edi,
-        uintptr_t ebp)
+        uintptr_t ebp,
+        uintptr_t stack00,
+        uintptr_t stack24,
+        uintptr_t stack2C,
+        uintptr_t stack38)
     {
         if (!g_pesBase)
             return;
@@ -271,20 +454,39 @@ namespace
             return;
 
         StoreActor(player, playerId);
+        LogTouchDebugIfNeeded(
+            source,
+            player,
+            eax,
+            ebx,
+            ecx,
+            edx,
+            esi,
+            edi,
+            ebp,
+            stack00,
+            stack24,
+            stack2C,
+            stack38
+        );
     }
 
     // ---------------------------------------------------------------------
     // Naked hooks
     // ---------------------------------------------------------------------
-
     __declspec(naked) void Hook_1ADEC9()
     {
         __asm
         {
             // Original: mov [03BE09CC], dl
-
             pushfd
             pushad
+
+            // Args extra finales: stack00, stack24, stack2C, stack38
+            push dword ptr[esp + 36 + 0x38] // stack38
+            push dword ptr[esp + 40 + 0x2C] // stack2C
+            push dword ptr[esp + 44 + 0x24] // stack24
+            push dword ptr[esp + 48 + 0x00] // stack00
 
             push ebp
             push edi
@@ -293,6 +495,7 @@ namespace
             push ecx
             push ebx
             push eax
+
             movzx eax, dl
             push eax
             push 1
@@ -302,11 +505,11 @@ namespace
             popfd
 
             push eax
-            mov eax, dword ptr [g_actorIdAddress]
-            mov byte ptr [eax], dl
+            mov eax, dword ptr[g_actorIdAddress]
+            mov byte ptr[eax], dl
             pop eax
 
-            jmp dword ptr [g_ret_1ADEC9]
+            jmp dword ptr[g_ret_1ADEC9]
         }
     }
 
@@ -315,9 +518,13 @@ namespace
         __asm
         {
             // Original: mov [03BE09CC], dl
-
             pushfd
             pushad
+
+            push dword ptr[esp + 36 + 0x38]
+            push dword ptr[esp + 40 + 0x2C]
+            push dword ptr[esp + 44 + 0x24]
+            push dword ptr[esp + 48 + 0x00]
 
             push ebp
             push edi
@@ -326,6 +533,7 @@ namespace
             push ecx
             push ebx
             push eax
+
             movzx eax, dl
             push eax
             push 2
@@ -335,11 +543,11 @@ namespace
             popfd
 
             push eax
-            mov eax, dword ptr [g_actorIdAddress]
-            mov byte ptr [eax], dl
+            mov eax, dword ptr[g_actorIdAddress]
+            mov byte ptr[eax], dl
             pop eax
 
-            jmp dword ptr [g_ret_1AF6D6]
+            jmp dword ptr[g_ret_1AF6D6]
         }
     }
 
@@ -348,9 +556,13 @@ namespace
         __asm
         {
             // Original: mov [03BE09CC], cl
-
             pushfd
             pushad
+
+            push dword ptr[esp + 36 + 0x38]
+            push dword ptr[esp + 40 + 0x2C]
+            push dword ptr[esp + 44 + 0x24]
+            push dword ptr[esp + 48 + 0x00]
 
             push ebp
             push edi
@@ -359,6 +571,7 @@ namespace
             push ecx
             push ebx
             push eax
+
             movzx eax, cl
             push eax
             push 3
@@ -368,11 +581,11 @@ namespace
             popfd
 
             push eax
-            mov eax, dword ptr [g_actorIdAddress]
-            mov byte ptr [eax], cl
+            mov eax, dword ptr[g_actorIdAddress]
+            mov byte ptr[eax], cl
             pop eax
 
-            jmp dword ptr [g_ret_1AFB43]
+            jmp dword ptr[g_ret_1AFB43]
         }
     }
 
@@ -381,9 +594,13 @@ namespace
         __asm
         {
             // Original: mov [03BE09CC], bl
-
             pushfd
             pushad
+
+            push dword ptr[esp + 36 + 0x38]
+            push dword ptr[esp + 40 + 0x2C]
+            push dword ptr[esp + 44 + 0x24]
+            push dword ptr[esp + 48 + 0x00]
 
             push ebp
             push edi
@@ -392,6 +609,7 @@ namespace
             push ecx
             push ebx
             push eax
+
             movzx eax, bl
             push eax
             push 4
@@ -401,11 +619,11 @@ namespace
             popfd
 
             push eax
-            mov eax, dword ptr [g_actorIdAddress]
-            mov byte ptr [eax], bl
+            mov eax, dword ptr[g_actorIdAddress]
+            mov byte ptr[eax], bl
             pop eax
 
-            jmp dword ptr [g_ret_07810D]
+            jmp dword ptr[g_ret_07810D]
         }
     }
 
@@ -512,4 +730,26 @@ bool HasRecentBallActor(ULONGLONG maxAgeMs)
         return false;
 
     return GetTickCount64() - tick <= maxAgeMs;
+}
+
+
+bool GetLastTouchDebugSnapshot(BallTouchDebugSnapshot* out)
+{
+    if (!out)
+        return false;
+
+    bool has = false;
+
+    if (g_actorCsInitialized)
+        EnterCriticalSection(&g_actorCs);
+
+    has = g_hasLastTouchSnapshot;
+
+    if (has)
+        *out = g_lastTouchSnapshot;
+
+    if (g_actorCsInitialized)
+        LeaveCriticalSection(&g_actorCs);
+
+    return has;
 }

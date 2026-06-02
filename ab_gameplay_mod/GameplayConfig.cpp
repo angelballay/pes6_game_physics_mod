@@ -22,7 +22,7 @@ namespace
     constexpr float DEFAULT_R1_BALL_WEIGHT = 305.0f;
     constexpr float DEFAULT_R2_BALL_WEIGHT = 230.0f;
     constexpr float DEFAULT_R1_R2_BALL_WEIGHT = 188.0f;
-    constexpr uint32_t DEFAULT_PROTECTED_ACTION_LATCH_MS = 700;
+    constexpr uint32_t DEFAULT_PROTECTED_ACTION_LATCH_MS = 0;
 
     constexpr float MIN_BALL_WEIGHT = 0.0f;
     constexpr float MAX_BALL_WEIGHT = 999.0f;
@@ -31,6 +31,14 @@ namespace
     constexpr uint32_t MAX_LATCH_MS = 5000;
 
     constexpr int DEFAULT_R2_CHARGE_WINDOW_MS = 600;
+
+    constexpr uint32_t DEFAULT_R2_CHARGE_WINDOW_MS = 600;
+    constexpr uint32_t DEFAULT_R2_CHARGE_START_DIST_MAX = 400;
+    constexpr uint32_t DEFAULT_R2_CHARGE_KEEP_DIST_MAX = 700;
+
+    const char* KEY_R2_CHARGE_WINDOW_MS = "r2_charge_window_ms";
+    const char* KEY_R2_CHARGE_START_DIST_MAX = "r2_charge_start_dist_max";
+    const char* KEY_R2_CHARGE_KEEP_DIST_MAX = "r2_charge_keep_dist_max";
 
 
     constexpr const char* KEY_R2_CHARGE_WINDOW_MS = "r2_charge_window_ms";
@@ -43,14 +51,19 @@ namespace
     const char* KEY_PROTECTED_ACTION_LATCH_MS = "protected_action_latch_ms";
 
     GameplayPhysicsConfig g_config = {
-        DEFAULT_OVERALL_BALL_WEIGHT,
-        DEFAULT_BALL_WEIGHT_STATE_1,
-        DEFAULT_NORMAL_DRIBBLE_BALL_WEIGHT,
-        DEFAULT_R1_BALL_WEIGHT,
-        DEFAULT_R2_BALL_WEIGHT,
-        DEFAULT_R1_R2_BALL_WEIGHT,
-        DEFAULT_PROTECTED_ACTION_LATCH_MS,
-        DEFAULT_R1_BALL_WEIGHT
+       DEFAULT_OVERALL_BALL_WEIGHT,
+       DEFAULT_BALL_WEIGHT_STATE_1,
+       DEFAULT_NORMAL_DRIBBLE_BALL_WEIGHT,
+       DEFAULT_R1_BALL_WEIGHT,
+       DEFAULT_R2_BALL_WEIGHT,
+       DEFAULT_R1_R2_BALL_WEIGHT,
+       DEFAULT_PROTECTED_ACTION_LATCH_MS,
+
+       DEFAULT_R2_CHARGE_WINDOW_MS,
+       DEFAULT_R2_CHARGE_START_DIST_MAX,
+       DEFAULT_R2_CHARGE_KEEP_DIST_MAX,
+
+       DEFAULT_R1_BALL_WEIGHT
     };
 
     static std::string BuildConfigPath(HMODULE moduleHandle)
@@ -296,21 +309,48 @@ bool LoadGameplayPhysicsConfig(HMODULE moduleHandle)
         DEFAULT_PROTECTED_ACTION_LATCH_MS
     );
 
+    g_config.r2ChargeWindowMs =
+        ReadValidatedMs(KEY_R2_CHARGE_WINDOW_MS, DEFAULT_R2_CHARGE_WINDOW_MS);
+
+    g_config.r2ChargeStartDistMax =
+        ReadValidatedMs(KEY_R2_CHARGE_START_DIST_MAX, DEFAULT_R2_CHARGE_START_DIST_MAX);
+
+    g_config.r2ChargeKeepDistMax =
+        ReadValidatedMs(KEY_R2_CHARGE_KEEP_DIST_MAX, DEFAULT_R2_CHARGE_KEEP_DIST_MAX);
+
     // Compatibilidad para codigo viejo. Ya no se usa como regla principal.
     g_config.possessionBallWeight = g_config.r1BallWeight;
 
     LogFormat(
-        "[CFG] Pesos cargados: overall=%.3f state1=%.3f normal=%.3f r1=%.3f r2=%.3f r1r2=%.3f latchMs=%u",
+        "[CFG] Pesos cargados: overall=%.3f state1=%.3f normal=%.3f r1=%.3f r2=%.3f r1r2=%.3f latchMs=%u r2ChargeMs=%u r2StartDist=%u r2KeepDist=%u",
         g_config.overallBallWeight,
         g_config.ballWeightState1,
         g_config.normalDribbleBallWeight,
         g_config.r1BallWeight,
         g_config.r2BallWeight,
         g_config.r1R2BallWeight,
-        static_cast<unsigned int>(g_config.protectedActionLatchMs)
+        static_cast<unsigned int>(g_config.protectedActionLatchMs),
+        static_cast<unsigned int>(g_config.r2ChargeWindowMs),
+        static_cast<unsigned int>(g_config.r2ChargeStartDistMax),
+        static_cast<unsigned int>(g_config.r2ChargeKeepDistMax)
     );
 
     return true;
+}
+
+uint32_t GetR2ChargeWindowMs()
+{
+    return g_config.r2ChargeWindowMs;
+}
+
+uint32_t GetR2ChargeStartDistMax()
+{
+    return g_config.r2ChargeStartDistMax;
+}
+
+uint32_t GetR2ChargeKeepDistMax()
+{
+    return g_config.r2ChargeKeepDistMax;
 }
 
 const GameplayPhysicsConfig& GetGameplayPhysicsConfig()
