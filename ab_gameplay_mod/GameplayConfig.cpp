@@ -28,6 +28,11 @@ namespace
     constexpr uint32_t DEFAULT_R2_CHARGE_START_DIST_MAX = 400;
     constexpr uint32_t DEFAULT_R2_CHARGE_KEEP_DIST_MAX = 700;
 
+    constexpr uint32_t DEFAULT_DEBUG_TOUCHDBG = 0;
+    constexpr uint32_t DEFAULT_DEBUG_BWDEC = 0;
+    constexpr uint32_t DEFAULT_DEBUG_CHARGEDBG = 0;
+    constexpr uint32_t DEFAULT_DEBUG_ACTOR_DEBUG_LOGGER = 0;
+
     constexpr float MIN_BALL_WEIGHT = 0.0f;
     constexpr float MAX_BALL_WEIGHT = 999.0f;
 
@@ -46,6 +51,11 @@ namespace
     const char* KEY_R2_CHARGE_START_DIST_MAX = "r2_charge_start_dist_max";
     const char* KEY_R2_CHARGE_KEEP_DIST_MAX = "r2_charge_keep_dist_max";
 
+    const char* KEY_DEBUG_TOUCHDBG = "debug_touchdbg";
+    const char* KEY_DEBUG_BWDEC = "debug_bwdec";
+    const char* KEY_DEBUG_CHARGEDBG = "debug_chargedbg";
+    const char* KEY_DEBUG_ACTOR_DEBUG_LOGGER = "debug_actor_debug_logger";
+
     GameplayPhysicsConfig g_config = {
         DEFAULT_OVERALL_BALL_WEIGHT,
         DEFAULT_BALL_WEIGHT_STATE_1,
@@ -57,7 +67,11 @@ namespace
         DEFAULT_R2_CHARGE_WINDOW_MS,
         DEFAULT_R2_CHARGE_START_DIST_MAX,
         DEFAULT_R2_CHARGE_KEEP_DIST_MAX,
-        DEFAULT_R1_BALL_WEIGHT
+        DEFAULT_R1_BALL_WEIGHT,
+        DEFAULT_DEBUG_TOUCHDBG,
+        DEFAULT_DEBUG_BWDEC,
+        DEFAULT_DEBUG_CHARGEDBG,
+        DEFAULT_DEBUG_ACTOR_DEBUG_LOGGER
     };
 
     static std::string BuildConfigPath(HMODULE moduleHandle)
@@ -283,6 +297,37 @@ namespace
 
         return value;
     }
+
+    static uint32_t ReadValidatedFlag(const char* key, uint32_t defaultValue)
+    {
+        std::string raw = ConfigStore::GetProperty(key, "");
+        bool shouldRewrite = false;
+        uint32_t value = defaultValue ? 1u : 0u;
+
+        if (raw.empty())
+        {
+            shouldRewrite = true;
+        }
+        else if (!TryParseUInt(raw, &value))
+        {
+            LogFormat(
+                "[CFG] Valor invalido para %s='%s'. Usando %u",
+                key,
+                raw.c_str(),
+                static_cast<unsigned int>(defaultValue ? 1u : 0u)
+            );
+            value = defaultValue ? 1u : 0u;
+            shouldRewrite = true;
+        }
+
+        value = value ? 1u : 0u;
+
+        std::string canonicalRaw = ConfigStore::GetProperty(key, "");
+        if (canonicalRaw.empty() || shouldRewrite || canonicalRaw != FormatUIntForCfg(value))
+            ConfigStore::EditProperty(key, FormatUIntForCfg(value));
+
+        return value;
+    }
 }
 
 bool LoadGameplayPhysicsConfig(HMODULE moduleHandle)
@@ -333,6 +378,18 @@ bool LoadGameplayPhysicsConfig(HMODULE moduleHandle)
     g_config.r2ChargeKeepDistMax =
         ReadValidatedMs(KEY_R2_CHARGE_KEEP_DIST_MAX, DEFAULT_R2_CHARGE_KEEP_DIST_MAX);
 
+    g_config.debugTouchDbg =
+        ReadValidatedFlag(KEY_DEBUG_TOUCHDBG, DEFAULT_DEBUG_TOUCHDBG);
+
+    g_config.debugBwDec =
+        ReadValidatedFlag(KEY_DEBUG_BWDEC, DEFAULT_DEBUG_BWDEC);
+
+    g_config.debugChargeDbg =
+        ReadValidatedFlag(KEY_DEBUG_CHARGEDBG, DEFAULT_DEBUG_CHARGEDBG);
+
+    g_config.debugActorDebugLogger =
+        ReadValidatedFlag(KEY_DEBUG_ACTOR_DEBUG_LOGGER, DEFAULT_DEBUG_ACTOR_DEBUG_LOGGER);
+
     g_config.possessionBallWeight = g_config.r1BallWeight;
 
     LogFormat(
@@ -348,7 +405,11 @@ bool LoadGameplayPhysicsConfig(HMODULE moduleHandle)
         static_cast<unsigned int>(g_config.protectedActionLatchMs),
         static_cast<unsigned int>(g_config.r2ChargeWindowMs),
         static_cast<unsigned int>(g_config.r2ChargeStartDistMax),
-        static_cast<unsigned int>(g_config.r2ChargeKeepDistMax));
+        static_cast<unsigned int>(g_config.r2ChargeKeepDistMax),
+        static_cast<unsigned int>(g_config.debugTouchDbg),
+        static_cast<unsigned int>(g_config.debugBwDec),
+        static_cast<unsigned int>(g_config.debugChargeDbg),
+        static_cast<unsigned int>(g_config.debugActorDebugLogger));
 
     return true;
 }
@@ -411,4 +472,24 @@ uint32_t GetR2ChargeKeepDistMax()
 float GetPossessionBallWeight()
 {
     return g_config.possessionBallWeight;
+}
+
+uint32_t GetDebugTouchDbg()
+{
+    return g_config.debugTouchDbg;
+}
+
+uint32_t GetDebugBwDec()
+{
+    return g_config.debugBwDec;
+}
+
+uint32_t GetDebugChargeDbg()
+{
+    return g_config.debugChargeDbg;
+}
+
+uint32_t GetDebugActorDebugLogger()
+{
+    return g_config.debugActorDebugLogger;
 }

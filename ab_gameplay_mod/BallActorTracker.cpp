@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "BallActorTracker.h"
+#include "GameplayConfig.h"
 
 #include "Logger.h"
 

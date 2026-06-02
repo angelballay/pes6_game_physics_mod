@@ -25,6 +25,12 @@ struct GameplayPhysicsConfig
 
     // Compatibilidad historica. Deprecated: antes era el peso unico de posesion.
     float possessionBallWeight;
+
+    // Debug/logs detallados. Para release público deberían quedar en 0.
+    uint32_t debugTouchDbg;
+    uint32_t debugBwDec;
+    uint32_t debugChargeDbg;
+    uint32_t debugActorDebugLogger;
 };
 
 bool LoadGameplayPhysicsConfig(HMODULE moduleHandle);
@@ -44,3 +50,8 @@ uint32_t GetR2ChargeKeepDistMax();
 
 // Deprecated, conservado para compatibilidad con codigo viejo.
 float GetPossessionBallWeight();
+
+uint32_t GetDebugTouchDbg();
+uint32_t GetDebugBwDec();
+uint32_t GetDebugChargeDbg();
+uint32_t GetDebugActorDebugLogger();

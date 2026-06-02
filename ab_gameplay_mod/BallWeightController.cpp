@@ -375,6 +375,9 @@ namespace
         bool active,
         uint32_t p114)
     {
+        if (!GetDebugChargeDbg())
+            return;
+
         static ULONGLONG s_lastLogTick = 0;
         static uintptr_t s_lastPlayer = 0;
         static uint32_t s_lastB0 = 0xFFFFFFFF;
@@ -729,6 +732,9 @@ namespace
         float target,
         BallWeightDecisionReason reason)
     {
+        if (!GetDebugBwDec())
+            return;
+
         const ULONGLONG now = GetTickCount64();
 
         uint32_t b0 = 0;
