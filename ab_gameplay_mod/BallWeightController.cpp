@@ -873,6 +873,19 @@ namespace
         // Aunque después se presione R1, no debe activar 305 hasta soltar L2.
         if (l2Held && !r1Held)
         {
+            const uint32_t p114 = GetPlayerBallDistanceRaw(player);
+
+            // Si ya veníamos de un ProBoost válido, una pérdida momentánea de R1
+            // puede ser doble R1 / tirarla larga. No bloquear en ese caso.
+            if (g_proL2HoldAuthorized &&
+                g_proL2HoldPlayer == player &&
+                p114 <= GetR2ChargeKeepDistMax())
+            {
+                ResetProBoostChargeOnly();
+                return false;
+            }
+
+            // Caso real de L2 primero.
             g_proL2HoldBlocked = true;
             g_proL2HoldAuthorized = false;
             g_proL2HoldPlayer = player;
@@ -883,9 +896,6 @@ namespace
             g_proTechnicalAuthorized = false;
             g_proTechnicalAuthorizedPlayer = 0;
 
-            // Clave:
-            // si aparece L2 sin R1, cualquier R1-only anterior ya no sirve.
-            // Esto evita que un armado viejo autorice L2 -> R1.
             ClearProBoostR1OnlyArm();
 
             return false;
