@@ -17,6 +17,17 @@ namespace
     constexpr DWORD BALL_STATE_POSSESSION = 0;
     constexpr DWORD BALL_STATE_PASS_OR_LOOSE = 1;
 
+    static bool g_proL2FirstBlocked = false;
+    static uintptr_t g_proL2FirstBlockedPlayer = 0;
+
+
+    static bool g_proL2HoldAuthorized = false;
+    static bool g_proL2HoldBlocked = false;
+    static uintptr_t g_proL2HoldPlayer = 0;
+
+    static bool g_proTechnicalAuthorized = false;
+    static uintptr_t g_proTechnicalAuthorizedPlayer = 0;
+
     uintptr_t g_pesBase = 0;
 
     volatile LONG g_running = 0;
@@ -173,14 +184,24 @@ namespace
             return false;
 
         const uint32_t b0 = ReadOr<uint32_t>(player + 0xB0, 0);
-        const uint32_t dirBits = b0 & INPUT_DIR_MASK;
 
-        const bool r1 = (b0 & R1_MASK) == R1_MASK;
-        const bool r2 = (b0 & R2_MASK) == R2_MASK;
+        const bool r1 =
+            (b0 & 0x01000800) == 0x01000800;
 
-        return dirBits != 0 || r1 || r2;
+        const bool r2 =
+            (b0 & 0x02000200) == 0x02000200;
+
+        const uint32_t l2Mask = GetL2Mask();
+
+        const bool l2 =
+            l2Mask != 0 &&
+            (b0 & l2Mask) == l2Mask;
+
+        // Importante:
+        // L2 también debe contar como input útil para que el controller
+        // pueda ver el caso L2 primero y bloquear ProBoost.
+        return r1 || r2 || l2;
     }
-
     static bool PlayerIsCloseEnoughToBall(uintptr_t player)
     {
         if (!LooksLikeValidPlayer(player))
@@ -273,65 +294,23 @@ namespace
         const uint32_t b0 = ReadOr<uint32_t>(player + 0xB0, 0);
         const uint32_t dirBits = b0 & 0xF0;
 
-        const uint8_t p16 = ReadOr<uint8_t>(player + 0x16, 0);
-        const uint8_t p4D = ReadOr<uint8_t>(player + 0x4D, 0);
-        const uint8_t p4F = ReadOr<uint8_t>(player + 0x4F, 0);
-        const uint16_t anim30 = GetAnim30(player);
-
         const bool b0R1 =
             (b0 & 0x01000800) == 0x01000800;
 
         if (b0R1)
             return true;
 
-        // Evitar confundir centros/tiros/golpes con R1.
-        if (p4D != 0)
-            return false;
-
-        const bool sprintAnim =
-            anim30 == 0x001C ||
-            anim30 == 0x001D ||
-            anim30 == 0x001E ||
-            anim30 == 0x003D ||
-            anim30 == 0x003E ||
-            anim30 == 0x0041 ||
-            anim30 == 0x0058 ||
-            anim30 == 0x02E4 ||
-            anim30 == 0x02E6 ||
-            anim30 == 0x02E9;
-
-        if (p16 == 2 && dirBits != 0 && sprintAnim)
-            return true;
-
-        // Fase de arranque/carrera observada al correr recto.
-        const bool runStartPhase =
-            p16 == 19 &&
-            p4D == 0 &&
-            p4F == 8 &&
-            dirBits != 0 &&
-            (
-                anim30 == 0x022A ||
-                anim30 == 0x0018
-                );
-
-        if (runStartPhase)
-            return true;
-
+        // Fallback corto solamente si el último touch real tenía R1.
+        // No usar animaciones para inventar R1, porque trote+giro puede parecer sprint.
         BallTouchDebugSnapshot touch = {};
-        if (GetRecentTouchForSamePlayer(player, &touch, 350))
+        if (GetRecentTouchForSamePlayer(player, &touch, 150))
         {
-            const bool touchHadR1 = touch.r1;
             const bool sameDir =
                 touch.dirBits != 0 &&
                 dirBits != 0 &&
                 touch.dirBits == dirBits;
 
-            const bool currentLooksLikeRun =
-                p16 == 2 &&
-                p4D == 0 &&
-                dirBits != 0;
-
-            if (touchHadR1 && currentLooksLikeRun && sameDir)
+            if (touch.r1 && sameDir)
                 return true;
         }
 
@@ -821,8 +800,14 @@ namespace
         return false;
     }
 
+    static void ClearProBoostR1OnlyArm()
+    {
+        g_proR1OnlyArmed = false;
+        g_proR1OnlyPlayer = 0;
+        g_proR1OnlyTick = 0;
+    }
 
-    static void ResetProBoostState()
+    static void ResetProBoostChargeOnly()
     {
         g_proLastTechDir = 0;
         g_proLastTechPlayer = 0;
@@ -837,57 +822,131 @@ namespace
         g_proChargePlayer = 0;
         g_proChargeFromDir = 0;
         g_proChargeToDir = 0;
+    }
+
+    static void ResetProBoostState()
+    {
+        ResetProBoostChargeOnly();
 
         g_proR1OnlyArmed = false;
         g_proR1OnlyPlayer = 0;
         g_proR1OnlyTick = 0;
+
+        g_proL2FirstBlocked = false;
+        g_proL2FirstBlockedPlayer = 0;
+
+        g_proTechnicalAuthorized = false;
+        g_proTechnicalAuthorizedPlayer = 0;
+
+        g_proL2HoldAuthorized = false;
+        g_proL2HoldBlocked = false;
+        g_proL2HoldPlayer = 0;
     }
 
     static bool UpdateProBoostTechnicalSprintHeld(bool r1Held, bool l2Held, uintptr_t player)
     {
-        const ULONGLONG now = GetTickCount64();
+        if (!LooksLikeValidPlayer(player))
+            return false;
 
-        if (!LooksLikeValidPlayer(player) || !r1Held)
+        const uint32_t curDir = GetPlayerDirBits(player);
+
+        // Soltar L2 termina el hold técnico completo.
+        // Esto libera tanto el bloqueo L2->R1 como la autorización R1->L2.
+        if (!l2Held)
+        {
+            g_proL2HoldAuthorized = false;
+            g_proL2HoldBlocked = false;
+            g_proL2HoldPlayer = 0;
+
+            g_proL2FirstBlocked = false;
+            g_proL2FirstBlockedPlayer = 0;
+
+            g_proTechnicalAuthorized = false;
+            g_proTechnicalAuthorizedPlayer = 0;
+
+            // Al soltar L2, el próximo ProBoost debe volver a nacer
+            // desde R1 solo, no desde un armado viejo.
+            ClearProBoostR1OnlyArm();
+        }
+
+        // L2 primero, sin R1: bloquear este hold de L2.
+        // Aunque después se presione R1, no debe activar 305 hasta soltar L2.
+        if (l2Held && !r1Held)
+        {
+            g_proL2HoldBlocked = true;
+            g_proL2HoldAuthorized = false;
+            g_proL2HoldPlayer = player;
+
+            g_proL2FirstBlocked = true;
+            g_proL2FirstBlockedPlayer = player;
+
+            g_proTechnicalAuthorized = false;
+            g_proTechnicalAuthorizedPlayer = 0;
+
+            // Clave:
+            // si aparece L2 sin R1, cualquier R1-only anterior ya no sirve.
+            // Esto evita que un armado viejo autorice L2 -> R1.
+            ClearProBoostR1OnlyArm();
+
+            return false;
+        }
+
+        // Sin R1 no hay ProBoost.
+        if (!r1Held)
         {
             ResetProBoostState();
             return false;
         }
 
-        const uint32_t curDir = GetPlayerDirBits(player);
-
-        // R1 sin L2 arma ProBoost. Esto preserva la intencion:
-        // primero correr con R1, despues sumar L2.
+        // R1 solo: arma la secuencia válida.
+        // Todavía no activa 305 en ProBoost.
         if (!l2Held)
         {
             g_proR1OnlyArmed = true;
             g_proR1OnlyPlayer = player;
-            g_proR1OnlyTick = now;
+            g_proR1OnlyTick = GetTickCount64();
 
-            // Al soltar L2 pero mantener R1, no debe quedar charge activo.
-            g_proChargeUntilMs = 0;
-            g_proChargePlayer = 0;
-            g_proChargeFromDir = 0;
-            g_proChargeToDir = 0;
-            g_proChargeConsumedForHold = false;
-            g_proPrevR2Held = false;
+            ResetProBoostChargeOnly();
 
             return false;
         }
 
-        // L2 primero + R1 no arma 305. Exigimos haber visto R1 solo antes.
-        if (!g_proR1OnlyArmed || g_proR1OnlyPlayer != player)
+        // Desde acá hay R1 + L2.
+
+        // Si este hold de L2 empezó mal, nunca activar hasta soltar L2.
+        if (g_proL2HoldBlocked)
             return false;
 
-        // Ventana amplia: si el usuario venia corriendo con R1 y suma L2, debe tomarlo
-        // aun si el polling no capturo el tick exacto anterior.
-        if (now - g_proR1OnlyTick > 2500ULL)
-            return false;
+        // Si ya estaba autorizado este hold de L2, mantener 305.
+        // No exigimos mismo player exacto porque tras tirarla larga puede haber
+        // microcambios de contexto aunque B0 actual esté correcto.
+        if (g_proL2HoldAuthorized)
+        {
+            if (curDir == 0)
+                return false;
 
-        // Debe haber direccion activa para evitar 305 en trote quieto/estado raro.
-        if (curDir == 0)
-            return false;
+            g_proL2HoldPlayer = player;
+            return true;
+        }
 
-        return true;
+        // Primera autorización válida:
+        // solo se concede si antes vimos R1 solo.
+        if (g_proR1OnlyArmed && g_proR1OnlyPlayer == player)
+        {
+            if (curDir == 0)
+                return false;
+
+            g_proL2HoldAuthorized = true;
+            g_proL2HoldBlocked = false;
+            g_proL2HoldPlayer = player;
+
+            g_proTechnicalAuthorized = true;
+            g_proTechnicalAuthorizedPlayer = player;
+
+            return true;
+        }
+
+        return false;
     }
 
     static void LogProBoostChargeDebug(
@@ -959,7 +1018,7 @@ namespace
 
         if (!LooksLikeValidPlayer(player))
         {
-            ResetProBoostState();
+            ResetProBoostChargeOnly();
             LogProBoostChargeDebug("RESET_NO_PLAYER", player, 0, 0, 0,
                 technicalHeld, r2Held, false, false, false, 0);
             return false;
@@ -1565,7 +1624,7 @@ namespace
         if (ballState == BALL_STATE_PASS_OR_LOOSE)
         {
             ResetR2DirectionalCharge();
-            ResetProBoostState();
+            ResetProBoostChargeOnly();
 
             target = GetBallWeightState1();
             reason = BW_REASON_STATE_PASS_OR_LOOSE;
@@ -1600,7 +1659,7 @@ namespace
         if (ballState != BALL_STATE_POSSESSION)
         {
             ResetR2DirectionalCharge();
-            ResetProBoostState();
+            ResetProBoostChargeOnly();
 
             target = overall;
             reason = BW_REASON_NOT_POSSESSION;
