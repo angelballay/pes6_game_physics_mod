@@ -4,4 +4,7 @@
     <Platform Name="x86" />
   </Configurations>
   <Project Path="ab_gameplay_mod/ab_gameplay_mod.vcxproj" Id="10fea24f-9ff4-480d-9dd4-2a593e4ed5ee" />
+  <Project Path="PES6_AI_Difficulty_Research/PES6_AI_Difficulty_Research.vcxproj" Id="81d7d4d4-9ae1-45a6-9c5a-6388f253e9a7">
+    <Platform Project="Win32" />
+  </Project>
 </Solution>
