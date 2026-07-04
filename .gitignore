@@ -69,3 +69,10 @@ vcpkg_installed/
 # test output & cache
 Testing/
 .cache/
+/PES6_AI_Difficulty_Research/tools/dif5.zip
+/PES6_AI_Difficulty_Research/tools/diff2.zip
+/PES6_AI_Difficulty_Research/tools/Test1
+/PES6_AI_Difficulty_Research/tools/Test2
+/PES6_AI_Difficulty_Research/tools/Test3
+/PES6_AI_Difficulty_Research/tools/Test4
+/PES6_AI_Difficulty_Research/tools/_batch_summary.csv
