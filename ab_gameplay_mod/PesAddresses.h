@@ -46,6 +46,14 @@ namespace PesAddresses
     // Puntero global de pelota:
     // [pes6.exe+7CCE94] = ball base
     constexpr uintptr_t BALL_GLOBAL_PTR = 0x7CCE94;
+
+    // Constante fisica estatica usada como peso/magnetismo del balon.
+    // Direccion absoluta historica: 00B8AE70
+    // Offset relativo a pes6.exe: pes6.exe+78AE70
+    constexpr uintptr_t BALL_WEIGHT_STATIC = 0x78AE70;
+
+    constexpr uintptr_t ACTIVE_PLAYER_PTR = 0x37E0AA0;
+    constexpr uintptr_t BALL_ACTOR_ID = 0x37E09CC;
 }
 
 // ------------------------------------------------------------
@@ -61,4 +69,12 @@ namespace PesOffsets
 
     // Potencia/inercia principal de la pelota.
     constexpr uintptr_t BALL_POWER = 0x50;
+
+    // Estado/tipo de accion del balon observado en pruebas:
+    //   0 = conduccion/control con pelota
+    //   1 = pase S/W
+    //   3 = centro/corner
+    //   4 = tiro/remate
+    //   5 = pelota quieta/control detenido
+    constexpr uintptr_t BALL_STATE = 0x84;
 }

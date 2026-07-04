@@ -140,6 +140,12 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="ActorDebugLogger.h" />
+    <ClInclude Include="BallActorTracker.h" />
+    <ClInclude Include="BallWeightController.h" />
+    <ClInclude Include="BallActionGuards.h" />
+    <ClInclude Include="ConfigStore.h" />
+    <ClInclude Include="GameplayConfig.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="HotkeyToggle.h" />
     <ClInclude Include="KitserverOverlay.h" />
@@ -154,6 +160,12 @@
     <ClInclude Include="resource.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="ActorDebugLogger.cpp" />
+    <ClCompile Include="BallActorTracker.cpp" />
+    <ClCompile Include="BallWeightController.cpp" />
+    <ClCompile Include="BallActionGuards.cpp" />
+    <ClCompile Include="ConfigStore.cpp" />
+    <ClCompile Include="GameplayConfig.cpp" />
     <ClCompile Include="dllmain.cpp" />
     <ClCompile Include="HotkeyToggle.cpp" />
     <ClCompile Include="KitserverOverlay.cpp" />
@@ -172,6 +184,11 @@
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="version.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include=".gitignore" />
+    <None Include="pes6_game_physics_mod.cfg" />
+    <None Include="version.aps" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

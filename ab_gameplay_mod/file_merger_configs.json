@@ -1,0 +1,12 @@
+{
+    "Default": {
+        "extensiones": ".txt, .log, .js, .css, .html, .sass, .cs, .aspx, .ts,",
+        "tamano": "1",
+        "omisiones": "node_modules, .git, .vs, bin, obj,"
+    },
+    "C+": {
+        "extensiones": ".txt, .log, .js, .css, .html, .sass, .cs, .aspx, .ts,.cpp,.h,.aps,.rc,.vcxproj",
+        "tamano": "25",
+        "omisiones": "node_modules, .git, .vs, bin, obj,Debug,Release,.dll"
+    }
+}
