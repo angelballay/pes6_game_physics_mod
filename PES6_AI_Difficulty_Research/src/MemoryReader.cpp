@@ -18,3 +18,10 @@ uint32_t MemoryReader::ReadU32(uintptr_t address, uint32_t fallback)
     __try { return *reinterpret_cast<volatile uint32_t*>(address); }
     __except (EXCEPTION_EXECUTE_HANDLER) { return fallback; }
 }
+
+
+float MemoryReader::ReadF32(uintptr_t address, float fallback)
+{
+    __try { return *reinterpret_cast<volatile float*>(address); }
+    __except (EXCEPTION_EXECUTE_HANDLER) { return fallback; }
+}

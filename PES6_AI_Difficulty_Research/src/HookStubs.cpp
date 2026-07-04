@@ -21,6 +21,7 @@ uintptr_t g_Return_CMP_11E5F3 = 0;
 uintptr_t g_Return_MOV_BL_11EAC4 = 0;
 uintptr_t g_Return_CMP_11EB66 = 0;
 uintptr_t g_Return_SWITCH_11EBE1 = 0;
+uintptr_t g_Return_POSITIVE_11F172 = 0;
 
 // IMPORTANT:
 // MSVC x86 inline asm can be fragile when macros expand __asm blocks inside
@@ -403,5 +404,30 @@ extern "C" __declspec(naked) void Hook_SWITCH_11EBE1_Probe()
         popfd
 
         jmp dword ptr [g_Return_SWITCH_11EBE1]
+    }
+}
+
+
+extern "C" __declspec(naked) void Hook_POSITIVE_11F172_Probe()
+{
+    __asm {
+        // Original documented positive commit sequence:
+        // 0051F172 - mov byte ptr [esi+16],0F
+        // 0051F176 - mov word ptr [esi+18],0004
+        // Return target: 0051F17C, where the routine continues to return positive.
+        mov byte ptr [esi+16h], 0Fh
+        mov word ptr [esi+18h], 0004h
+
+        pushfd
+        pushad
+        mov eax, esp
+        push eax
+        push 130
+        call AiLog_Branch
+        add esp, 8
+        popad
+        popfd
+
+        jmp dword ptr [g_Return_POSITIVE_11F172]
     }
 }

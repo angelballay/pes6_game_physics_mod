@@ -28,6 +28,10 @@ namespace PesAddresses
     constexpr uintptr_t RVA_CMP_11EB66        = 0x11EB66;
     constexpr uintptr_t RVA_SWITCH_11EBE1     = 0x11EBE1;
 
+    // Documented positive commit site: mov [esi+16],0F; mov [esi+18],0004; then return positive.
+    // Hook is optional/experimental and disabled by default in ResearchConfig.
+    constexpr uintptr_t RVA_POSITIVE_11F172    = 0x11F172;
+
     // Read-only reference only. fix6 no longer patches this table.
     constexpr uintptr_t RVA_TABLE_78BFA8      = 0x78BFA8;
 

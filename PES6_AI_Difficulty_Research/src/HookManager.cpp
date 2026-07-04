@@ -1,6 +1,7 @@
 #include "HookManager.h"
 #include "HookStubs.h"
 #include "PesAddresses.h"
+#include "ResearchConfig.h"
 
 #include <cstring>
 
@@ -36,11 +37,14 @@ bool HookManager::InstallAll()
     g_Return_MOV_BL_11EAC4    = base + 0x11EACA;
     g_Return_CMP_11EB66       = base + 0x11EB6D;
     g_Return_SWITCH_11EBE1    = base + 0x11EBE8;
+    g_Return_POSITIVE_11F172   = base + 0x11F17C;
 
     bool ok = true;
 
-    // No gameplay tweaks in fix7. Every hook below is a neutral probe.
-    ok = ok && InstallJump(base + PesAddresses::RVA_MOV_CL_65F21,     reinterpret_cast<void*>(&Hook_MOV_CL_65F21_Probe), 6);
+    // No gameplay tweaks in fix8. Every hook below is a neutral probe.
+    // 65F21 is useful but extremely noisy, so it is controlled by ResearchConfig.
+    if (ResearchConfig::kInstallNoisy65F21Probe)
+        ok = ok && InstallJump(base + PesAddresses::RVA_MOV_CL_65F21, reinterpret_cast<void*>(&Hook_MOV_CL_65F21_Probe), 6);
     ok = ok && InstallJump(base + PesAddresses::RVA_MOV_BL_550C1,     reinterpret_cast<void*>(&Hook_MOV_BL_550C1_Probe), 6);
     ok = ok && InstallJump(base + PesAddresses::RVA_MOVZX_EAX_59A5FD, reinterpret_cast<void*>(&Hook_MOVZX_EAX_59A5FD_Probe), 7);
 
@@ -57,6 +61,9 @@ bool HookManager::InstallAll()
     ok = ok && InstallJump(base + PesAddresses::RVA_MOV_BL_11EAC4,    reinterpret_cast<void*>(&Hook_MOV_BL_11EAC4_Probe), 6);
     ok = ok && InstallJump(base + PesAddresses::RVA_CMP_11EB66,       reinterpret_cast<void*>(&Hook_CMP_11EB66_Probe), 7);
     ok = ok && InstallJump(base + PesAddresses::RVA_SWITCH_11EBE1,    reinterpret_cast<void*>(&Hook_SWITCH_11EBE1_Probe), 7);
+
+    if (ResearchConfig::kInstallExperimental11F172PositiveHook)
+        ok = ok && InstallJump(base + PesAddresses::RVA_POSITIVE_11F172, reinterpret_cast<void*>(&Hook_POSITIVE_11F172_Probe), 10);
 
     return ok;
 }

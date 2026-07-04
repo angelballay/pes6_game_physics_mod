@@ -22,6 +22,7 @@ extern uintptr_t g_Return_CMP_11E5F3;
 extern uintptr_t g_Return_MOV_BL_11EAC4;
 extern uintptr_t g_Return_CMP_11EB66;
 extern uintptr_t g_Return_SWITCH_11EBE1;
+extern uintptr_t g_Return_POSITIVE_11F172;
 
 extern "C" void Hook_MOV_CL_65F21_Probe();
 extern "C" void Hook_MOV_BL_550C1_Probe();
@@ -40,3 +41,4 @@ extern "C" void Hook_CMP_11E5F3_Probe();
 extern "C" void Hook_MOV_BL_11EAC4_Probe();
 extern "C" void Hook_CMP_11EB66_Probe();
 extern "C" void Hook_SWITCH_11EBE1_Probe();
+extern "C" void Hook_POSITIVE_11F172_Probe();

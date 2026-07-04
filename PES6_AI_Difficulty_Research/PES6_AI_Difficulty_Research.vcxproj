@@ -68,6 +68,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="src\AiDifficultyLogger.cpp" />
+    <ClCompile Include="src\BehaviorContext.cpp" />
     <ClCompile Include="src\dllmain.cpp" />
     <ClCompile Include="src\FileLogSink.cpp" />
     <ClCompile Include="src\HookManager.cpp" />
@@ -76,6 +77,8 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\AiDifficultyLogger.h" />
+    <ClInclude Include="src\BehaviorContext.h" />
+    <ClInclude Include="src\ResearchConfig.h" />
     <ClInclude Include="src\BranchId.h" />
     <ClInclude Include="src\FileLogSink.h" />
     <ClInclude Include="src\HookManager.h" />

@@ -6,7 +6,7 @@ enum class BranchId : uint32_t
 {
     NONE = 0,
 
-    // fix7: neutral semantic probes + 11C253/state-change focus. These hooks execute the original instruction(s)
+    // fix8: neutral behavior blackbox probes + 11C253/state-change/context focus. These hooks execute the original instruction(s)
     // and then log context. They do not change difficulty, tables, thresholds or actor fields.
     PROBE_MOV_CL_65F21      = 101, // 00465F21 - mov cl,[diff]
     PROBE_MOV_BL_550C1      = 102, // 004550C1 - mov bl,[diff] -> jmp 11E517
@@ -25,6 +25,9 @@ enum class BranchId : uint32_t
     PROBE_MOV_BL_11EAC4     = 120, // 0051EAC4 - mov bl,[diff]
     PROBE_CMP_11EB66        = 121, // 0051EB66 - cmp byte ptr [diff],02
     PROBE_SWITCH_11EBE1     = 122, // 0051EBE1 - movzx eax,[diff]; jump table follows
+
+    // Optional direct commit probe. Disabled by default unless ResearchConfig enables the hook.
+    PROBE_POSITIVE_11F172    = 130, // 0051F172 - writes state 0x0F/sub 0x0004
 };
 
 inline const char* BranchName(BranchId id)
@@ -48,6 +51,7 @@ inline const char* BranchName(BranchId id)
     case BranchId::PROBE_MOV_BL_11EAC4: return "PROBE_MOV_BL_11EAC4";
     case BranchId::PROBE_CMP_11EB66: return "PROBE_CMP_11EB66_DIFF_GT_2_GATE";
     case BranchId::PROBE_SWITCH_11EBE1: return "PROBE_SWITCH_11EBE1_CL_CLASS";
+    case BranchId::PROBE_POSITIVE_11F172: return "PROBE_POSITIVE_11F172_STATE_0F_0004";
     default: return "UNKNOWN";
     }
 }

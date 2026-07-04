@@ -6,6 +6,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\AiDifficultyLogger.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="src\BehaviorContext.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="src\dllmain.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="src\FileLogSink.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="src\HookManager.cpp"><Filter>Source Files</Filter></ClCompile>
@@ -14,6 +15,8 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\AiDifficultyLogger.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="src\BehaviorContext.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="src\ResearchConfig.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="src\BranchId.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="src\FileLogSink.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="src\HookManager.h"><Filter>Header Files</Filter></ClInclude>
