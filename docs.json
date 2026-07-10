@@ -1,0 +1,30 @@
+{
+  "theme": "aspen",
+  "name": "PES6 Game Physics Mod",
+  "colors": {
+    "primary": "#1E6B3C",
+    "light": "#D4EDDA",
+    "dark": "#0D3B20"
+  },
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/angelballay/pes6_game_physics_mod"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/angelballay/pes6_game_physics_mod"
+    }
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "pages": [
+          "index"
+        ]
+      }
+    ]
+  }
+}
