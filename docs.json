@@ -18,13 +18,6 @@
     }
   },
   "navigation": {
-    "tabs": [
-      {
-        "tab": "Documentation",
-        "pages": [
-          "index"
-        ]
-      }
-    ]
+    "groups": []
   }
 }
